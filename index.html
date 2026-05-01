@@ -1220,12 +1220,12 @@ function saveAdminEdit(gk){
       groupLabel:newSlot?newSlot.label:g.bk.groupLabel,
       tier:newSlot?newSlot.tier:g.bk.tier,
       editedByTeacher:new Date().toISOString()};
-    // Handle date change — move to new storage key
+    // Handle date change - move to new storage key
     if(dateStr!==g.bk.dateStr&&!g.bk.repeatId){
       const nk=slotKey(dateStr,newSlotId);
       bookings[nk]={...updatedEntry,dateStr}; delete bookings[k];
     } else if(newSlotId!==g.bk.slotId&&!g.bk.repeatId){
-      // Time changed — move to new key (same date, new slot)
+      // Time changed - move to new key (same date, new slot)
       const nk=slotKey(dateStr,newSlotId);
       bookings[nk]={...updatedEntry,dateStr}; delete bookings[k];
     } else {
