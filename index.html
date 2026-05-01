@@ -1144,7 +1144,7 @@ function renderAdmin(){
         <div><span class="section-label">Name</span><input type="text" id="eName-${gk.replace(/[^a-z0-9]/gi,'_')}" value="${bk.name||''}" style="font-size:14px;"/></div>
         <div><span class="section-label">Email</span><input type="text" id="eEmail-${gk.replace(/[^a-z0-9]/gi,'_')}" value="${bk.email||''}" style="font-size:14px;"/></div>
         <div><span class="section-label">Note</span><textarea id="eNote-${gk.replace(/[^a-z0-9]/gi,'_')}" rows="2" style="font-size:14px;resize:none;">${bk.note||''}</textarea></div>
-        ${!isRecurring?'<div><span class="section-label">Date</span><input type="date" id="eDate-'+gk.replace(/[^a-z0-9]/gi,'_')+'" value="'+(bk.dateStr||'')+'" style="font-size:14px;color-scheme:dark;"/></div>':''}
+        ${!isRecurring?'<div><span class="section-label">Date</span><input type="date" id="eDate-'+safeGk+'" value="'+(bk.dateStr||'')+'" style="font-size:14px;color-scheme:dark;"/></div><div><span class="section-label">Time</span><select id="eTime-'+safeGk+'" style="background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 14px;border-radius:9px;font-size:14px;width:100%;outline:none;">'+ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===bk.slotId?' selected':'')+'>'+s.label+' ('+s.tier+')</option>').join('')+'</select></div>':''}
         <div>
           <span class="section-label">Status</span>
           <div class="status-btns">
@@ -1210,12 +1210,26 @@ function saveAdminEdit(gk){
   const email=document.getElementById('eEmail-'+safeGk)?.value||g.bk.email;
   const note=document.getElementById('eNote-'+safeGk)?.value||'';
   const dateStr=document.getElementById('eDate-'+safeGk)?.value||g.bk.dateStr;
+  const newSlotId=document.getElementById('eTime-'+safeGk)?.value||g.bk.slotId;
+  const newSlot=ALL_SLOTS.find(s=>s.id===newSlotId);
   const status=_editStatuses[gk]||g.bk.status;
   for(const k of g.keys){
-    bookings[k]={...bookings[k],name,email,note,status,editedByTeacher:new Date().toISOString()};
+    const updatedEntry={...bookings[k],name,email,note,status,
+      slotId:newSlotId,
+      slotLabel:newSlot?newSlot.label:g.bk.slotLabel,
+      groupLabel:newSlot?newSlot.label:g.bk.groupLabel,
+      tier:newSlot?newSlot.tier:g.bk.tier,
+      editedByTeacher:new Date().toISOString()};
+    // Handle date change — move to new storage key
     if(dateStr!==g.bk.dateStr&&!g.bk.repeatId){
-      const nk=k.replace(/^\d{4}-\d{2}-\d{2}/,dateStr);
-      if(nk!==k){bookings[nk]={...bookings[k],dateStr};delete bookings[k];}
+      const nk=slotKey(dateStr,newSlotId);
+      bookings[nk]={...updatedEntry,dateStr}; delete bookings[k];
+    } else if(newSlotId!==g.bk.slotId&&!g.bk.repeatId){
+      // Time changed — move to new key (same date, new slot)
+      const nk=slotKey(dateStr,newSlotId);
+      bookings[nk]={...updatedEntry,dateStr}; delete bookings[k];
+    } else {
+      bookings[k]=updatedEntry;
     }
   }
   saveBookings(bookings);
@@ -1288,6 +1302,7 @@ function renderCustResults(){
       <div class="cust-edit-panel">
         <div style="font-size:11px;color:#818cf8;margin-bottom:12px;font-weight:700;">Changes return to Pending for re-approval.</div>
         <div style="margin-bottom:10px;"><span class="section-label">Date</span><input type="date" id="cDate-${gk.replace(/[^a-z0-9]/gi,'_')}" value="${bk.dateStr||''}" min="${dateKey(new Date())}" style="font-size:14px;color-scheme:dark;"/></div>
+        <div style="margin-bottom:10px;"><span class="section-label">Time</span><select id="cTime-${gk.replace(/[^a-z0-9]/gi,'_')}" style="background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 14px;border-radius:9px;font-size:14px;width:100%;outline:none;">${ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===bk.slotId?' selected':'')+'>'+s.label+' ('+s.tier+')</option>').join('')}</select></div>
         <div style="margin-bottom:10px;"><span class="section-label">Message</span><textarea id="cNote-${gk.replace(/[^a-z0-9]/gi,'_')}" rows="3" placeholder="Update your message..." style="font-size:14px;resize:none;">${bk.note||''}</textarea></div>
         <div style="display:flex;gap:8px;">
           <button onclick="toggleCustEdit('${gk}')" class="btn-secondary" style="flex:1;">Cancel</button>
@@ -1311,12 +1326,20 @@ function saveCustEdit(gk){
   const g=groups[gk];
   if(!g) return;
   const newDateStr=document.getElementById('cDate-'+safeGk)?.value||g.bk.dateStr;
+  const newSlotId=document.getElementById('cTime-'+safeGk)?.value||g.bk.slotId;
+  const newSlot=ALL_SLOTS.find(s=>s.id===newSlotId);
   const note=document.getElementById('cNote-'+safeGk)?.value||'';
   const dateChanged=newDateStr&&newDateStr!==g.bk.dateStr;
+  const timeChanged=newSlotId&&newSlotId!==g.bk.slotId;
   for(const k of g.keys){
-    const updBk={...bookings[k],note,dateStr:newDateStr,status:'pending',editedAt:new Date().toISOString()};
-    if(dateChanged&&!g.bk.repeatId){
-      const nk=k.replace(/^\d{4}-\d{2}-\d{2}/,newDateStr);
+    const updBk={...bookings[k],note,dateStr:newDateStr,
+      slotId:newSlotId,
+      slotLabel:newSlot?newSlot.label:g.bk.slotLabel,
+      groupLabel:newSlot?newSlot.label:g.bk.groupLabel,
+      tier:newSlot?newSlot.tier:g.bk.tier,
+      status:'pending',editedAt:new Date().toISOString()};
+    if((dateChanged||timeChanged)&&!g.bk.repeatId){
+      const nk=slotKey(newDateStr,newSlotId);
       bookings[nk]=updBk; delete bookings[k];
     } else {
       bookings[k]=updBk;
