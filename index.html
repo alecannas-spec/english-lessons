@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#012169"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="MEB"/>
+<title>Modular English Booking</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0a0a;color:#e5e5e5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;-webkit-tap-highlight-color:transparent;}
+button,input,textarea{font-family:inherit;}
+input,textarea{background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 14px;border-radius:9px;font-size:16px;width:100%;outline:none;}
+.screen{display:none;min-height:100vh;}
+.screen.active{display:block;}
+.flag-bg{position:fixed;inset:0;z-index:0;overflow:hidden;}
+.flag-bg svg{width:100%;height:100%;object-fit:cover;}
+.flag-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.72);}
+.card{position:relative;z-index:1;background:rgba(10,10,10,0.92);border:1px solid #222;border-radius:20px;padding:36px 28px;width:100%;max-width:340px;margin:0 auto;}
+.pin-wrap{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.pin-title{font-size:22px;color:#fff;text-align:center;margin-bottom:6px;font-weight:700;}
+.pin-sub{font-size:13px;color:#555;text-align:center;margin-bottom:24px;}
+.pin-dots{display:flex;justify-content:center;gap:12px;margin-bottom:28px;}
+.pin-dot{width:12px;height:12px;border-radius:50%;background:#333;transition:background 0.1s;}
+.pin-dot.filled{background:#fff;}
+.pin-error{text-align:center;color:#f87171;font-size:13px;margin-bottom:12px;min-height:20px;}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.num-btn{padding:18px 0;border-radius:12px;font-size:22px;font-weight:600;background:#161616;border:1px solid #2a2a2a;color:#fff;cursor:pointer;transition:background 0.1s;}
+.num-btn:active{background:#2a2a2a;}
+.num-btn.empty{background:transparent;border:none;pointer-events:none;}
+.num-btn.del{font-size:16px;}
+.teacher-link{text-align:center;margin-top:20px;}
+.teacher-link button{background:none;border:none;color:#555;font-size:12px;cursor:pointer;text-decoration:underline;}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.shake{animation:shake 0.4s ease;}
+
+/* Calendar */
+.header{background:rgba(10,10,10,0.85);border-bottom:1px solid #1a1a1a;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:relative;z-index:2;}
+.header-title{font-size:20px;font-weight:700;color:#fff;}
+.header-sub{font-size:11px;color:#666;margin-top:2px;}
+.header-btns{display:flex;gap:8px;flex-wrap:wrap;}
+.nav-btn{background:#1a1a1a;border:1px solid #2a2a2a;color:#bbb;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;}
+.nav-btn:active{background:#2a2a2a;}
+.legend{display:flex;gap:6px;padding:10px 14px;flex-wrap:wrap;position:relative;z-index:2;}
+.legend-item{display:flex;align-items:center;gap:5px;background:rgba(10,10,10,0.7);border-radius:20px;padding:3px 10px 3px 7px;}
+.legend-dot{width:7px;height:7px;border-radius:50%;}
+.week-nav{display:flex;align-items:center;gap:8px;padding:0 14px 10px;position:relative;z-index:2;}
+.week-label{flex:1;text-align:center;font-size:12px;color:#777;}
+.grid-wrap{overflow-x:auto;padding:0 10px;position:relative;z-index:2;}
+.cal-grid{display:grid;gap:4px;}
+.day-header{text-align:center;padding:5px 2px;border-radius:7px;}
+.day-name{font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:1px;}
+.day-num{font-size:15px;font-weight:700;color:#fff;}
+.day-num.today{color:#818cf8;}
+.day-header.today{background:rgba(26,26,46,0.8);border:1px solid rgba(59,59,255,0.2);}
+.band-label{display:flex;flex-direction:column;justify-content:center;padding-right:3px;}
+.band-start{font-size:9px;font-weight:700;text-align:right;}
+.band-end{font-size:8px;text-align:right;opacity:0.5;}
+.band-cell{border-radius:8px;padding:7px 3px;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;border:1px solid #181818;background:rgba(10,10,10,0.5);transition:opacity 0.15s;}
+.band-cell.available{cursor:pointer;}
+.band-cell.past{opacity:0.25;cursor:default;}
+.band-cell.booked{cursor:pointer;}
+.cell-dot{width:6px;height:6px;border-radius:50%;}
+.cell-text{font-size:10px;font-weight:600;}
+.cell-sub{font-size:8px;opacity:0.7;}
+
+/* Slot picker */
+.sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:100;display:flex;align-items:flex-end;justify-content:center;}
+.sheet{border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column;}
+.sheet-handle{width:36px;height:4px;background:#2a2a2a;border-radius:2px;margin:14px auto 12px;}
+.sheet-header{padding:0 20px 12px;flex-shrink:0;}
+.sheet-title{font-size:18px;color:#fff;font-weight:700;margin-bottom:2px;}
+.sheet-sub{font-size:12px;font-weight:600;margin-bottom:10px;}
+.sheet-hint{font-size:12px;color:#555;background:#0d0d0d;border-radius:8px;padding:8px 12px;}
+.slot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;overflow-y:auto;padding:8px 20px 16px;flex-grow:1;}
+.slot-btn{padding:12px 6px;border-radius:10px;border:2px solid;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;transition:all 0.1s;}
+.slot-btn .slot-time{font-size:15px;font-weight:700;line-height:1;}
+.slot-btn .slot-status{font-size:9px;}
+.sheet-footer{padding:12px 20px 28px;flex-shrink:0;border-top:1px solid #1a1a1a;}
+.sel-label{text-align:center;font-size:13px;font-weight:600;margin-bottom:10px;}
+.sheet-actions{display:flex;gap:10px;}
+.btn-primary{flex:2;border:none;padding:13px;border-radius:9px;cursor:pointer;font-weight:700;font-size:15px;}
+.btn-secondary{flex:1;background:#1a1a1a;border:1px solid #2a2a2a;color:#bbb;padding:13px;border-radius:9px;cursor:pointer;font-size:13px;}
+
+/* Form sheet */
+.form-body{padding:20px 20px 36px;overflow-y:auto;max-height:90vh;}
+.form-title{font-size:19px;color:#fff;font-weight:700;margin-bottom:4px;}
+.form-sub{font-size:12px;color:#555;margin-bottom:18px;}
+.form-fields{display:flex;flex-direction:column;gap:10px;}
+.field-err{font-size:11px;color:#ef4444;margin-top:-4px;}
+.field-hint{font-size:11px;color:#555;margin-top:-4px;}
+.repeat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;}
+.repeat-btn{padding:10px 4px;border-radius:10px;border:2px solid #2a2a2a;background:#0d0d0d;color:#555;cursor:pointer;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all 0.15s;}
+.repeat-btn.active{font-weight:700;}
+.repeat-hint{font-size:11px;color:#555;margin-top:6px;}
+.form-footer{display:flex;gap:10px;margin-top:18px;}
+.section-label{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:block;}
+.repeat-label{font-size:11px;color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+
+/* Status badges */
+.badge{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:1px;}
+.badge-pending{background:#78350f;color:#fde68a;}
+.badge-confirmed{background:#14532d;color:#bbf7d0;}
+.badge-rejected{background:#450a0a;color:#fecaca;}
+.badge-recurring{background:#1e1b4b;border:1px solid #3730a3;color:#818cf8;font-size:10px;}
+
+/* Notif modal */
+.notif-body{padding:24px 20px 36px;max-height:85vh;overflow-y:auto;}
+.notif-title{font-size:19px;color:#fff;font-weight:700;margin-bottom:4px;}
+.notif-sub{font-size:12px;color:#555;margin-bottom:20px;}
+.notif-section{margin-bottom:20px;}
+.notif-section-title{font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;}
+.notif-link{display:flex;align-items:center;gap:10px;border-radius:10px;padding:12px 14px;text-decoration:none;margin-bottom:8px;}
+.notif-link-title{font-weight:700;font-size:13px;}
+.notif-link-sub{font-size:11px;opacity:0.5;}
+
+/* Admin */
+.admin-wrap{background:#0a0a0a;min-height:100vh;padding-bottom:60px;}
+.admin-header{background:#111;border-bottom:1px solid #222;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.admin-title{font-size:20px;color:#fff;font-weight:700;}
+.filter-tabs{display:flex;gap:6px;padding:14px 14px 0;flex-wrap:wrap;}
+.filter-tab{padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #2a2a2a;background:#111;color:#666;}
+.filter-tab.active{border-color:#818cf8;background:#1e1b4b;color:#818cf8;}
+.booking-list{padding:14px;}
+.booking-card{background:#111;border-radius:12px;padding:14px;margin-bottom:10px;}
+.booking-card-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.booking-info{flex:1;min-width:160px;}
+.booking-name{font-weight:700;color:#fff;font-size:14px;}
+.booking-badges{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px;}
+.booking-email{font-size:12px;color:#666;}
+.booking-note{font-size:11px;color:#4a4a4a;margin-top:2px;font-style:italic;}
+.booking-date{margin-top:5px;font-size:12px;}
+.booking-tier{font-size:11px;color:#444;margin-top:2px;}
+.booking-actions{display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;}
+.action-btn{padding:8px 10px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;border:1px solid;}
+.edit-panel{margin-top:14px;border-top:1px solid #1e1e2e;padding-top:14px;display:flex;flex-direction:column;gap:10px;}
+.edit-panel-title{font-size:11px;color:#818cf8;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.status-btns{display:flex;gap:8px;}
+.status-btn{flex:1;padding:9px 4px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #2a2a2a;background:#0d0d0d;color:#555;}
+.status-btn.active-pending{border-color:#d97706;background:#451a03;color:#fbbf24;}
+.status-btn.active-confirmed{border-color:#16a34a;background:#14532d;color:#4ade80;}
+.status-btn.active-rejected{border-color:#dc2626;background:#450a0a;color:#f87171;}
+.edit-footer{display:flex;gap:8px;margin-top:4px;}
+
+/* Customer view */
+.cust-wrap{min-height:100vh;padding-bottom:60px;}
+.cust-search{background:rgba(10,10,10,0.8);border:1px solid #222;border-radius:14px;padding:20px;margin:16px;margin-bottom:12px;}
+.cust-hint{font-size:13px;color:#aaa;margin-bottom:14px;}
+.cust-result{background:rgba(17,17,17,0.9);border:1px solid #222;border-radius:12px;padding:14px;margin:0 16px 10px;}
+.cust-result.editing{border-color:#818cf8;}
+.cust-result-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.cust-edit-panel{margin-top:12px;border-top:1px solid #1e1e2e;padding-top:12px;}
+
+/* Teacher login */
+.pw-wrap{position:relative;margin-bottom:8px;}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#555;cursor:pointer;font-size:14px;padding:4px;}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:11px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:300;box-shadow:0 4px 20px rgba(0,0,0,0.6);white-space:nowrap;pointer-events:none;}
+
+/* Teacher mode badge */
+.teacher-badge{margin-top:4px;display:inline-flex;align-items:center;gap:5px;background:#1e1b4b;border:1px solid #3730a3;border-radius:12px;padding:2px 10px;}
+.teacher-badge-dot{width:6px;height:6px;border-radius:50%;background:#818cf8;}
+.teacher-badge-text{font-size:11px;color:#818cf8;font-weight:700;}
+
+/* Slot rows for teacher mode */
+.slot-row-cell{min-height:32px;border-radius:4px;display:flex;align-items:center;justify-content:center;padding:0 3px;cursor:pointer;}
+.slot-name{font-size:10px;font-weight:700;text-align:center;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.slot-status-icon{font-size:7px;opacity:0.7;}
+</style>
+</head>
+<body>
+
+<!-- UK Flag (shared) -->
+<div class="flag-bg" id="flagBg">
+  <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+    <rect width="60" height="30" fill="#012169"/>
+    <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>
+    <defs>
+      <clipPath id="tl-br"><polygon points="0,0 60,30 60,24 6,0"/><polygon points="0,0 60,30 54,30 0,6"/></clipPath>
+      <clipPath id="tr-bl"><polygon points="60,0 0,30 0,24 54,0"/><polygon points="60,0 0,30 6,30 60,6"/></clipPath>
+    </defs>
+    <path d="M0,0 L60,30" stroke="#C8102E" stroke-width="4" clip-path="url(#tl-br)"/>
+    <path d="M60,0 L0,30" stroke="#C8102E" stroke-width="4" clip-path="url(#tr-bl)"/>
+    <rect x="25" y="0" width="10" height="30" fill="#fff"/>
+    <rect x="0" y="10" width="60" height="10" fill="#fff"/>
+    <rect x="27" y="0" width="6" height="30" fill="#C8102E"/>
+    <rect x="0" y="12" width="60" height="6" fill="#C8102E"/>
+  </svg>
+  <div class="flag-overlay"></div>
+</div>
+
+<!-- Screens -->
+<div id="screen-pin" class="screen active">
+  <div class="pin-wrap">
+    <div class="card" id="pinCard">
+      <div class="pin-title">Modular English Booking</div>
+      <div class="pin-sub">Enter your access PIN</div>
+      <div class="pin-dots" id="pinDots"></div>
+      <div class="pin-error" id="pinError"></div>
+      <div class="numpad">
+        <button class="num-btn" onclick="pinPress('1')">1</button>
+        <button class="num-btn" onclick="pinPress('2')">2</button>
+        <button class="num-btn" onclick="pinPress('3')">3</button>
+        <button class="num-btn" onclick="pinPress('4')">4</button>
+        <button class="num-btn" onclick="pinPress('5')">5</button>
+        <button class="num-btn" onclick="pinPress('6')">6</button>
+        <button class="num-btn" onclick="pinPress('7')">7</button>
+        <button class="num-btn" onclick="pinPress('8')">8</button>
+        <button class="num-btn" onclick="pinPress('9')">9</button>
+        <button class="num-btn empty"></button>
+        <button class="num-btn" onclick="pinPress('0')">0</button>
+        <button class="num-btn del" onclick="pinDel()">DEL</button>
+      </div>
+      <div class="teacher-link">
+        <button onclick="showScreen('screen-teacherpw')">Teacher access</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="screen-teacherpw" class="screen">
+  <div class="pin-wrap">
+    <div class="card">
+      <div class="pin-title">Teacher Login</div>
+      <div class="pin-sub" style="margin-bottom:22px;">Enter your password</div>
+      <div class="pw-wrap">
+        <input type="text" id="teacherPwInput" placeholder="Password" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" style="-webkit-text-security:disc;padding-right:44px;" onkeydown="if(event.key==='Enter')teacherLogin()"/>
+        <button class="pw-toggle" onclick="toggleTeacherPw()" id="pwToggle">Show</button>
+      </div>
+      <div class="pin-error" id="teacherPwError"></div>
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        <button class="nav-btn" style="flex:1;padding:11px;" onclick="showScreen('screen-pin')">Back</button>
+        <button onclick="teacherLogin()" style="flex:2;background:#818cf8;border:none;color:#fff;padding:11px;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;">Login</button>
+      </div>
+      <div style="text-align:center;margin-top:14px;">
+        <button onclick="goCalendar('student')" style="background:none;border:none;color:#444;font-size:12px;cursor:pointer;">Enter as student instead</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="screen-calendar" class="screen">
+  <div class="header">
+    <div>
+      <div class="header-title">Modular English Booking</div>
+      <div class="header-sub">Tap a block to pick your time - 30-min slots</div>
+      <div class="teacher-badge" id="teacherBadge" style="display:none;">
+        <div class="teacher-badge-dot"></div>
+        <span class="teacher-badge-text">Teacher View - names visible</span>
+      </div>
+    </div>
+    <div class="header-btns">
+      <button class="nav-btn" onclick="showScreen('screen-customer')">My Bookings</button>
+      <button class="nav-btn" onclick="showScreen('screen-teacherpw')">Teacher</button>
+    </div>
+  </div>
+  <div class="legend" id="calLegend"></div>
+  <div class="week-nav">
+    <button class="nav-btn" onclick="changeWeek(-1)">&#8592;</button>
+    <span class="week-label" id="weekLabel"></span>
+    <button class="nav-btn" onclick="changeWeek(1)">&#8594;</button>
+    <button class="nav-btn" id="todayBtn" onclick="changeWeek(0,true)" style="font-size:11px;display:none;">Today</button>
+  </div>
+  <div class="grid-wrap">
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+</div>
+
+<div id="screen-admin" class="screen">
+  <div class="admin-wrap">
+    <div class="admin-header">
+      <div class="admin-title">Teacher Dashboard</div>
+      <button class="nav-btn" onclick="showScreen('screen-pin')">Exit</button>
+    </div>
+    <div class="filter-tabs" id="filterTabs"></div>
+    <div class="booking-list" id="bookingList"></div>
+  </div>
+</div>
+
+<div id="screen-customer" class="screen">
+  <div class="cust-wrap" style="position:relative;">
+    <div class="header" style="position:relative;z-index:2;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="nav-btn" onclick="showScreen('screen-calendar')">&#8592; Calendar</button>
+        <span style="font-size:18px;color:#fff;font-weight:700;">My Bookings</span>
+      </div>
+    </div>
+    <div style="position:relative;z-index:2;">
+      <div class="cust-search">
+        <div class="cust-hint">Enter your name and email to find your bookings</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <input type="text" id="custName" placeholder="Your name"/>
+          <input type="text" id="custEmail" placeholder="Email address" inputmode="email"/>
+          <button onclick="custFind()" style="background:#818cf8;border:none;color:#fff;padding:13px;border-radius:9px;cursor:pointer;font-weight:700;font-size:15px;">Find My Bookings</button>
+        </div>
+      </div>
+      <div id="custResults"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Slot picker sheet -->
+<div class="sheet-overlay" id="slotSheet" style="display:none;" onclick="if(event.target===this)closeSlotSheet()">
+  <div class="sheet" id="slotSheetInner">
+    <div style="padding:0 20px;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title" id="slotSheetTitle"></div>
+      <div class="sheet-sub" id="slotSheetSub"></div>
+      <div class="sheet-hint" id="slotSheetHint"></div>
+    </div>
+    <div class="slot-grid" id="slotGrid"></div>
+    <div class="sheet-footer">
+      <div class="sel-label" id="selLabel" style="display:none;"></div>
+      <div class="sheet-actions">
+        <button class="btn-secondary" onclick="closeSlotSheet()">Cancel</button>
+        <button class="btn-primary" id="slotNextBtn" onclick="slotNext()" style="display:none;"></button>
+        <div id="slotSelectHint" style="flex:2;text-align:center;font-size:13px;color:#333;padding:13px;align-self:center;">Tap to select</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Booking form sheet -->
+<div class="sheet-overlay" id="formSheet" style="display:none;">
+  <div class="sheet" id="formSheetInner">
+    <div class="form-body">
+      <div class="sheet-handle"></div>
+      <div class="form-title" id="formTitle"></div>
+      <div class="form-sub" id="formSub"></div>
+      <div class="form-fields">
+        <input type="text" id="fName" placeholder="Your name" autocomplete="name" enterkeyhint="next" oninput="validateForm()" onkeydown="if(event.key==='Enter')document.getElementById('fEmail').focus()"/>
+        <input type="text" id="fEmail" placeholder="Email address (for notifications)" autocomplete="email" inputmode="email" enterkeyhint="next" oninput="validateForm()" onkeydown="if(event.key==='Enter')document.getElementById('fWA').focus()"/>
+        <div class="field-err" id="emailErr" style="display:none;">Please include an @ in the email address</div>
+        <input type="text" id="fWA" placeholder="WhatsApp number (optional, with country code)" inputmode="tel" enterkeyhint="next" onkeydown="if(event.key==='Enter')document.getElementById('fNote').focus()"/>
+        <div class="field-hint">Add email or WhatsApp to receive booking updates</div>
+        <textarea id="fNote" rows="2" placeholder="Message (optional)" style="resize:none;"></textarea>
+      </div>
+      <div id="repeatSection" style="margin-top:16px;">
+        <div class="repeat-label">Repeat</div>
+        <div class="repeat-grid" id="repeatGrid"></div>
+        <div class="repeat-hint" id="repeatHint"></div>
+      </div>
+      <div class="form-footer">
+        <button class="btn-secondary" onclick="formBack()">Back</button>
+        <button class="btn-primary" id="formSubmitBtn" onclick="submitBooking()">Confirm Request</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Notification modal -->
+<div class="sheet-overlay" id="notifSheet" style="display:none;">
+  <div class="sheet" style="background:#111;border:1px solid #333;">
+    <div class="notif-body">
+      <div class="sheet-handle"></div>
+      <div class="notif-title" id="notifTitle"></div>
+      <div class="notif-sub" id="notifSub"></div>
+      <div id="notifContent"></div>
+      <button onclick="closeNotif()" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#aaa;padding:13px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;margin-top:8px;">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast" style="display:none;"></div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const CALENDAR_PIN = '1234';
+const TEACHER_CALENDAR_PIN = '5678';
+const ADMIN_PASSWORD = 'teacher2024';
+const TEACHER_WA = '971585067893';
+const TEACHER_EMAIL = 'gilointernational@gmail.com';
+
+// ============================================================
+// DATA
+// ============================================================
+const BANDS_NORMAL = [
+  {id:'morning',  sH:9, sM:0, eH:12,eM:0, hex:'#22c55e',bg:'#052e16',border:'#16a34a',label:'09:00-12:00',tier:'Best Price'},
+  {id:'midday',   sH:12,sM:0, eH:14,eM:0, hex:'#ef4444',bg:'#450a0a',border:'#dc2626',label:'12:00-14:00',tier:'Premium'},
+  {id:'afternoon',sH:15,sM:0, eH:20,eM:0, hex:'#f59e0b',bg:'#451a03',border:'#d97706',label:'15:00-20:00',tier:'Standard'},
+  {id:'evening',  sH:21,sM:0, eH:24,eM:0, hex:'#ef4444',bg:'#450a0a',border:'#dc2626',label:'21:00-24:00',tier:'Premium'},
+];
+const BANDS_SUMMER = [
+  {id:'morning',  sH:9, sM:0, eH:12,eM:0, hex:'#f59e0b',bg:'#451a03',border:'#d97706',label:'09:00-12:00',tier:'Standard'},
+  {id:'midday',   sH:12,sM:0, eH:14,eM:0, hex:'#ef4444',bg:'#450a0a',border:'#dc2626',label:'12:00-14:00',tier:'Premium'},
+  {id:'afternoon',sH:14,sM:0, eH:20,eM:0, hex:'#f59e0b',bg:'#451a03',border:'#d97706',label:'14:00-20:00',tier:'Standard'},
+  {id:'evening',  sH:21,sM:0, eH:24,eM:0, hex:'#ef4444',bg:'#450a0a',border:'#dc2626',label:'21:00-24:00',tier:'Premium'},
+];
+const DAYS_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+function isSummer(m){ return m>=6&&m<=8; }
+function getBands(m){ return isSummer(m)?BANDS_SUMMER:BANDS_NORMAL; }
+
+function pad(n){ return String(n).padStart(2,'0'); }
+
+function buildSlots(bands){
+  const slots=[];
+  for(const b of bands){
+    let cur=b.sH*60+b.sM;
+    const end=b.eH*60+b.eM;
+    while(cur<end){
+      const h=Math.floor(cur/60),m=cur%60,next=cur+30;
+      const nh=Math.floor(next/60),nm=next%60;
+      slots.push({id:b.id+'_'+h+'_'+m,bandId:b.id,startMin:cur,endMin:next,
+        label:pad(h)+':'+pad(m)+'-'+pad(nh)+':'+pad(nm),
+        short:pad(h)+':'+pad(m),
+        hex:b.hex,bg:b.bg,border:b.border,tier:b.tier});
+      cur=next;
+    }
+  }
+  return slots;
+}
+
+const ALL_SLOTS_NORMAL = buildSlots(BANDS_NORMAL);
+const ALL_SLOTS_SUMMER = buildSlots(BANDS_SUMMER);
+function getSlots(m){ return isSummer(m)?ALL_SLOTS_SUMMER:ALL_SLOTS_NORMAL; }
+const ALL_SLOTS = [...ALL_SLOTS_NORMAL,...ALL_SLOTS_SUMMER.filter(s=>!ALL_SLOTS_NORMAL.find(n=>n.id===s.id))];
+
+// ============================================================
+// STORAGE
+// ============================================================
+const SK = 'meb_bookings_v1';
+function loadBookings(){ try{ const d=localStorage.getItem(SK); return d?JSON.parse(d):{}; }catch(e){ return {}; } }
+function saveBookings(data){ try{ localStorage.setItem(SK,JSON.stringify(data)); }catch(e){} }
+let bookings = loadBookings();
+
+// ============================================================
+// STATE
+// ============================================================
+let calendarMode = 'student';
+let weekOffset = 0;
+let modalDate = null;
+let modalBand = null;
+let anchorSlot = null;
+let rangeEndSlot = null;
+let editingKey = null;
+let selectedRepeat = 'once';
+let adminFilter = 'all';
+let custEditGk = null;
+let custEditData = {};
+let custSearchResults = [];
+let showTeacherPw = false;
+let notifData = null;
+
+// ============================================================
+// UTILS
+// ============================================================
+function dateKey(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function slotKey(ds,sid){ return ds+'__'+sid; }
+function isPast(date,startMin){
+  const t=new Date(date); t.setHours(Math.floor(startMin/60),startMin%60+30,0,0); return t<new Date();
+}
+function getWeekDates(offset){
+  const now=new Date(),day=now.getDay();
+  const mon=new Date(now);
+  mon.setDate(now.getDate()-(day===0?6:day-1)+offset*7);
+  return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d; });
+}
+function todayKey(){ return dateKey(new Date()); }
+
+function showToast(msg, hex, border){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  if(hex){
+    t.style.background=hex+'22';
+    t.style.border='1px solid '+(border||hex);
+    t.style.color=hex;
+  } else {
+    t.style.background='#14532d';
+    t.style.border='1px solid #16a34a';
+    t.style.color='#4ade80';
+  }
+  t.style.display='block';
+  setTimeout(()=>t.style.display='none',3000);
+}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const flag = document.getElementById('flagBg');
+  flag.style.display = ['screen-pin','screen-teacherpw','screen-calendar','screen-customer'].includes(id) ? 'block' : 'none';
+  if(id==='screen-calendar') renderCalendar();
+  if(id==='screen-admin') renderAdmin();
+}
+
+// ============================================================
+// PIN
+// ============================================================
+let pinVal = '';
+function pinPress(d){
+  if(pinVal.length>=8) return;
+  pinVal+=d;
+  updatePinDots();
+  document.getElementById('pinError').textContent='';
+  if(pinVal.length>=4){
+    setTimeout(()=>{
+      if(pinVal===CALENDAR_PIN){ goCalendar('student'); }
+      else if(pinVal===TEACHER_CALENDAR_PIN){ goCalendar('teacher'); }
+      else{
+        document.getElementById('pinCard').classList.add('shake');
+        document.getElementById('pinError').textContent='Wrong PIN';
+        pinVal='';
+        updatePinDots();
+        setTimeout(()=>document.getElementById('pinCard').classList.remove('shake'),500);
+      }
+    },120);
+  }
+}
+function pinDel(){ pinVal=pinVal.slice(0,-1); updatePinDots(); }
+function updatePinDots(){
+  const c=document.getElementById('pinDots');
+  c.innerHTML='';
+  for(let i=0;i<4;i++){
+    const d=document.createElement('div');
+    d.className='pin-dot'+(i<pinVal.length?' filled':'');
+    c.appendChild(d);
+  }
+}
+function goCalendar(mode){
+  calendarMode=mode;
+  pinVal='';
+  updatePinDots();
+  showScreen('screen-calendar');
+}
+
+// ============================================================
+// TEACHER LOGIN
+// ============================================================
+function toggleTeacherPw(){
+  showTeacherPw=!showTeacherPw;
+  const inp=document.getElementById('teacherPwInput');
+  inp.style.webkitTextSecurity=showTeacherPw?'none':'disc';
+  document.getElementById('pwToggle').textContent=showTeacherPw?'Hide':'Show';
+}
+function teacherLogin(){
+  const val=document.getElementById('teacherPwInput').value;
+  if(val===ADMIN_PASSWORD){
+    document.getElementById('teacherPwInput').value='';
+    document.getElementById('teacherPwError').textContent='';
+    showScreen('screen-admin');
+  } else {
+    document.getElementById('teacherPwError').textContent='Wrong password';
+    document.getElementById('teacherPwInput').value='';
+  }
+}
+
+// ============================================================
+// CALENDAR
+// ============================================================
+function changeWeek(dir, reset){
+  if(reset){ weekOffset=0; }
+  else { weekOffset+=dir; }
+  renderCalendar();
+}
+
+function renderCalendar(){
+  const dates=getWeekDates(weekOffset);
+  const midMonth=dates[3].getMonth()+1;
+  const bands=getBands(midMonth);
+
+  // Teacher badge
+  document.getElementById('teacherBadge').style.display=calendarMode==='teacher'?'flex':'none';
+
+  // Week label
+  const fmt=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  document.getElementById('weekLabel').textContent=fmt(dates[0])+' - '+fmt(dates[6])+' '+dates[6].getFullYear();
+  document.getElementById('todayBtn').style.display=weekOffset!==0?'block':'none';
+
+  // Legend
+  const leg=document.getElementById('calLegend');
+  leg.innerHTML='';
+  for(const b of bands){
+    const div=document.createElement('div');
+    div.className='legend-item';
+    div.style.border='1px solid '+b.border;
+    div.innerHTML='<div class="legend-dot" style="background:'+b.hex+'"></div><span style="font-size:10px;color:#bbb;">'+b.label+'</span><span style="font-size:10px;color:'+b.hex+';font-weight:700;margin-left:4px;">'+b.tier+'</span>';
+    leg.appendChild(div);
+  }
+
+  // Grid
+  const grid=document.getElementById('calGrid');
+  const cols=62+dates.length*1; // roughly
+  grid.style.gridTemplateColumns='62px repeat(7,1fr)';
+  grid.innerHTML='';
+
+  // Day headers
+  const emptyLbl=document.createElement('div');
+  grid.appendChild(emptyLbl);
+  const today=todayKey();
+  for(let i=0;i<dates.length;i++){
+    const d=dates[i];
+    const dk=dateKey(d);
+    const div=document.createElement('div');
+    div.className='day-header'+(dk===today?' today':'');
+    div.innerHTML='<div class="day-name">'+DAYS_SHORT[i]+'</div><div class="day-num'+(dk===today?' today':'')+'">'+d.getDate()+'</div>';
+    grid.appendChild(div);
+  }
+
+  if(calendarMode==='teacher'){
+    // Teacher mode: slot-by-slot rows
+    const slots=getSlots(midMonth);
+    for(const slot of slots){
+      const h=Math.floor(slot.startMin/60),m=slot.startMin%60;
+      const isHour=m===0;
+      // Label
+      const lbl=document.createElement('div');
+      lbl.className='band-label';
+      lbl.style.minHeight='32px';
+      if(isHour){
+        lbl.innerHTML='<div class="band-start" style="color:'+slot.hex+'">'+pad(h)+':00</div>';
+      }
+      grid.appendChild(lbl);
+      // Cells
+      for(let di=0;di<dates.length;di++){
+        const d=dates[di];
+        const ds=dateKey(d);
+        const bk=bookings[slotKey(ds,slot.id)];
+        const past=isPast(new Date(ds+'T12:00:00'),slot.startMin);
+        const isBooked=bk&&bk.status!=='rejected';
+        const cell=document.createElement('div');
+        cell.className='slot-row-cell';
+        cell.style.minHeight='32px';
+        cell.style.borderRadius='4px';
+        cell.style.borderTop=isHour?'1px solid '+slot.border+'44':'1px solid #111';
+        if(isBooked){
+          cell.style.background=slot.bg;
+          cell.style.border='1px solid '+slot.border+'99';
+          cell.style.cursor='pointer';
+          const name=bk.name.split(' ')[0];
+          const icon=bk.status==='confirmed'?'OK':'...';
+          cell.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;gap:1px;width:100%;overflow:hidden;"><span class="slot-name" style="color:'+slot.hex+'">'+name+'</span><span class="slot-status-icon" style="color:'+slot.hex+'">'+icon+'</span></div>';
+          cell.onclick=()=>openModify(d,bands.find(b=>b.id===slot.bandId)||bands[0],slotKey(ds,slot.id),bk);
+        } else if(past){
+          cell.style.opacity='0.3';
+          cell.style.background='rgba(10,10,10,0.2)';
+        } else {
+          cell.style.background='rgba(10,10,10,0.35)';
+          cell.style.cursor='pointer';
+          const dot=document.createElement('div');
+          dot.style.cssText='width:4px;height:4px;border-radius:50%;background:'+slot.hex+'44;';
+          cell.appendChild(dot);
+          cell.onclick=()=>openBandPicker(d,bands.find(b=>b.id===slot.bandId)||bands[0]);
+        }
+        grid.appendChild(cell);
+      }
+    }
+  } else {
+    // Student mode: one block per band
+    for(const band of bands){
+      const lbl=document.createElement('div');
+      lbl.className='band-label';
+      lbl.innerHTML='<div class="band-start" style="color:'+band.hex+'">'+pad(band.sH)+':'+pad(band.sM)+'</div><div class="band-end" style="color:'+band.hex+'">-'+pad(band.eH)+':'+pad(band.eM)+'</div>';
+      grid.appendChild(lbl);
+      for(let di=0;di<dates.length;di++){
+        const d=dates[di];
+        const ds=dateKey(d);
+        const month=d.getMonth()+1;
+        const dateBand=getBands(month).find(b=>b.id===band.id);
+        if(!dateBand){ const e=document.createElement('div'); e.style.cssText='border-radius:8px;background:rgba(10,10,10,0.5);min-height:54px;'; grid.appendChild(e); continue; }
+        const slots=getSlots(month).filter(s=>s.bandId===dateBand.id);
+        let free=0,booked=0;
+        const bookedEntries=[];
+        for(const s of slots){
+          if(isPast(new Date(ds+'T12:00:00'),s.startMin)) continue;
+          const bk=bookings[slotKey(ds,s.id)];
+          if(bk&&bk.status!=='rejected'){ booked++; bookedEntries.push(bk); }
+          else free++;
+        }
+        const allPast=free===0&&booked===0;
+        const canClick=free>0;
+        const hasConf=bookedEntries.some(b=>b.status==='confirmed');
+        const hasPend=bookedEntries.some(b=>b.status==='pending');
+        const domStatus=hasConf?'confirmed':hasPend?'pending':null;
+        const isBooked=booked>0&&domStatus!==null;
+        const freeH=Math.floor(free/2),freeM=free%2?'30':'';
+        const freeStr=freeH>0?freeH+'h'+freeM:(freeM?freeM+'min':'');
+
+        const cell=document.createElement('div');
+        cell.className='band-cell'+(allPast?' past':isBooked?' booked':canClick?' available':'');
+        if((canClick||isBooked)&&!allPast){
+          cell.style.cssText='border-radius:8px;border:1px solid '+dateBand.border+'88;background:'+dateBand.bg+';padding:7px 3px;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;';
+        } else {
+          cell.style.cssText='border-radius:8px;border:1px solid #181818;background:rgba(10,10,10,0.5);padding:7px 3px;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;opacity:'+(allPast?'0.25':'1')+';';
+        }
+
+        if(allPast){
+          cell.innerHTML='<span style="font-size:9px;color:#222;">-</span>';
+        } else if(canClick){
+          cell.innerHTML='<div style="width:6px;height:6px;border-radius:50%;background:'+dateBand.hex+';box-shadow:0 0 4px '+dateBand.hex+';"></div><span style="font-size:10px;color:'+dateBand.hex+';font-weight:600;">'+freeStr+'</span>'+(booked>0?'<span style="font-size:8px;color:'+dateBand.hex+'88;">'+(booked/2>=1?(booked/2)+'h':'30m')+' taken</span>':'');
+          cell.onclick=()=>openBandPicker(d,dateBand);
+        } else if(isBooked){
+          cell.innerHTML='<div style="width:6px;height:6px;border-radius:50%;background:'+dateBand.hex+';opacity:'+(domStatus==='pending'?'0.5':'1')+'"></div><span style="font-size:9px;color:'+dateBand.hex+';font-weight:700;">'+(domStatus==='confirmed'?'Booked':'Pending')+'</span>';
+          const first=slots.map(s=>({key:slotKey(ds,s.id),bk:bookings[slotKey(ds,s.id)]})).find(x=>x.bk&&x.bk.status!=='rejected');
+          if(first) cell.onclick=()=>openModify(d,dateBand,first.key,first.bk);
+        } else {
+          cell.innerHTML='<span style="font-size:11px;opacity:0.4;">-</span>';
+        }
+        grid.appendChild(cell);
+      }
+    }
+  }
+}
+
+// ============================================================
+// SLOT PICKER
+// ============================================================
+function openBandPicker(date,band){
+  modalDate=date; modalBand=band; anchorSlot=null; rangeEndSlot=null; editingKey=null;
+  renderSlotPicker();
+  document.getElementById('slotSheet').style.display='flex';
+  document.getElementById('slotSheetInner').style.background='#111';
+  document.getElementById('slotSheetInner').style.border='1px solid '+band.border;
+  document.getElementById('slotSheetInner').style.boxShadow='0 -6px 40px '+band.hex+'18';
+}
+
+function openModify(date,band,key,bk){
+  modalDate=date; modalBand=band; editingKey=key;
+  document.getElementById('fName').value=bk.name||'';
+  document.getElementById('fEmail').value=bk.email||'';
+  document.getElementById('fWA').value=bk.whatsapp||'';
+  document.getElementById('fNote').value=bk.note||'';
+  selectedRepeat=bk.repeat||'once';
+  openFormSheet(true);
+}
+
+function closeSlotSheet(){
+  document.getElementById('slotSheet').style.display='none';
+  anchorSlot=null; rangeEndSlot=null;
+}
+
+function getBandSlots(){
+  if(!modalBand||!modalDate) return [];
+  return getSlots(modalDate.getMonth()+1).filter(s=>s.bandId===modalBand.id);
+}
+
+function getSelectedIds(){
+  const slots=getBandSlots();
+  if(!anchorSlot) return [];
+  const ai=slots.findIndex(s=>s.id===anchorSlot);
+  if(ai===-1) return [anchorSlot];
+  if(!rangeEndSlot||rangeEndSlot===anchorSlot) return [anchorSlot];
+  const bi=slots.findIndex(s=>s.id===rangeEndSlot);
+  if(bi===-1) return [anchorSlot];
+  const lo=Math.min(ai,bi),hi=Math.max(ai,bi);
+  return slots.slice(lo,hi+1).map(s=>s.id);
+}
+
+function getDuration(){ return getDurationFromIds(getSelectedIds()); }
+function getSelLabel(){ return getSelLabelFromIds(getSelectedIds()); }
+function getDurationFromIds(ids){
+  const n=ids.length;
+  if(!n) return '';
+  if(n===1) return '30 min';
+  return n%2===0?(n/2)+'h':Math.floor(n/2)+'h 30min';
+}
+function getSelLabelFromIds(ids){
+  if(!ids.length) return '';
+  const slots=getBandSlots();
+  const first=slots.find(s=>s.id===ids[0]);
+  const last=slots.find(s=>s.id===ids[ids.length-1]);
+  if(!first||!last) return '';
+  return pad(Math.floor(first.startMin/60))+':'+pad(first.startMin%60)+' - '+pad(Math.floor(last.endMin/60))+':'+pad(last.endMin%60);
+}
+
+function renderSlotPicker(){
+  const ds=dateKey(modalDate);
+  const band=modalBand;
+  document.getElementById('slotSheetTitle').textContent=modalDate.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('slotSheetSub').textContent=band.label+' - '+band.tier;
+  document.getElementById('slotSheetSub').style.color=band.hex;
+  updateSlotHint();
+
+  const grid=document.getElementById('slotGrid');
+  grid.innerHTML='';
+  const slots=getBandSlots();
+  const selIds=getSelectedIds();
+  const ancIdx=slots.findIndex(s=>s.id===anchorSlot);
+
+  for(const slot of slots){
+    const bk=bookings[slotKey(ds,slot.id)];
+    const past=isPast(modalDate,slot.startMin);
+    const taken=bk&&bk.status!=='rejected';
+    const disabled=past||taken;
+    const isSel=selIds.includes(slot.id);
+    const isAnc=slot.id===anchorSlot;
+    const isEnd=rangeEndSlot&&slot.id===rangeEndSlot;
+
+    // Preview
+    let preview=false;
+    if(anchorSlot&&!rangeEndSlot&&!disabled&&slot.id!==anchorSlot){
+      const bi=slots.findIndex(s=>s.id===slot.id);
+      const lo=Math.min(ancIdx,bi),hi=Math.max(ancIdx,bi);
+      preview=slots.slice(lo,hi+1).every(s=>{
+        if(isPast(modalDate,s.startMin)) return false;
+        const b2=bookings[slotKey(ds,s.id)];
+        return !(b2&&b2.status!=='rejected');
+      });
+    }
+
+    const btn=document.createElement('button');
+    btn.className='slot-btn';
+    let borderC=disabled?'#181818':isSel?slot.hex:preview?slot.border+'44':slot.border+'33';
+    let bgC=disabled?'#0c0c0c':isSel?(isAnc||isEnd?slot.hex+'35':slot.hex+'18'):preview?slot.bg+'cc':slot.bg;
+    let colorC=disabled?'#2a2a2a':isSel?slot.hex:'#888';
+    btn.style.cssText='padding:12px 6px;border-radius:10px;border:2px solid '+borderC+';background:'+bgC+';color:'+colorC+';cursor:'+(disabled?'not-allowed':'pointer')+';font-size:13px;font-weight:'+(isSel?'700':'400')+';transition:all 0.1s;display:flex;flex-direction:column;align-items:center;gap:3px;';
+    let statusText=past?'Past':taken?(bk.status==='confirmed'?'Booked':'Pending'):isAnc&&!rangeEndSlot?'Start':isEnd?'End':isSel?'*':'';
+    btn.innerHTML='<span style="font-size:15px;font-weight:700;line-height:1;">'+slot.short+'</span><span style="font-size:9px;">'+statusText+'</span>';
+    if(!disabled) btn.onclick=()=>tapSlot(slot);
+    grid.appendChild(btn);
+  }
+  updateSlotFooter();
+}
+
+function tapSlot(slot){
+  const ds=dateKey(modalDate);
+  const slots=getBandSlots();
+  if(isPast(modalDate,slot.startMin)) return;
+  if(bookings[slotKey(ds,slot.id)]&&bookings[slotKey(ds,slot.id)].status!=='rejected') return;
+  if(!anchorSlot){ anchorSlot=slot.id; rangeEndSlot=null; }
+  else if(anchorSlot===slot.id&&!rangeEndSlot){ anchorSlot=null; rangeEndSlot=null; }
+  else {
+    const ai=slots.findIndex(s=>s.id===anchorSlot);
+    const bi=slots.findIndex(s=>s.id===slot.id);
+    const lo=Math.min(ai,bi),hi=Math.max(ai,bi);
+    const blocked=slots.slice(lo,hi+1).some(s=>{
+      if(isPast(modalDate,s.startMin)) return true;
+      const bk=bookings[slotKey(ds,s.id)];
+      return bk&&bk.status!=='rejected';
+    });
+    if(blocked){ anchorSlot=slot.id; rangeEndSlot=null; }
+    else rangeEndSlot=slot.id;
+  }
+  renderSlotPicker();
+}
+
+function updateSlotHint(){
+  const h=document.getElementById('slotSheetHint');
+  if(!anchorSlot) h.textContent='Tap to set start time';
+  else if(!rangeEndSlot){
+    const slots=getBandSlots();
+    const s=slots.find(s=>s.id===anchorSlot);
+    h.textContent='Start: '+s.short+' - tap end time';
+  } else {
+    h.textContent=getSelLabel()+' - '+getDuration();
+  }
+}
+
+function updateSlotFooter(){
+  const ids=getSelectedIds();
+  const has=ids.length>0;
+  const lbl=document.getElementById('selLabel');
+  const btn=document.getElementById('slotNextBtn');
+  const hint=document.getElementById('slotSelectHint');
+  if(has){
+    lbl.style.display='block';
+    lbl.style.color=modalBand.hex;
+    lbl.textContent=getSelLabel()+' - '+getDuration();
+    btn.style.display='block';
+    btn.style.background=modalBand.hex;
+    btn.style.color='#000';
+    btn.textContent=anchorSlot&&!rangeEndSlot?'Confirm 30 min':'Book '+getDuration();
+    hint.style.display='none';
+  } else {
+    lbl.style.display='none';
+    btn.style.display='none';
+    hint.style.display='block';
+  }
+}
+
+let savedSelectedIds = [];
+
+function slotNext(){
+  if(anchorSlot&&!rangeEndSlot) rangeEndSlot=anchorSlot;
+  savedSelectedIds=getSelectedIds();
+  closeSlotSheet();
+  openFormSheet(false);
+}
+
+// ============================================================
+// BOOKING FORM
+// ============================================================
+function openFormSheet(isEdit){
+  const sheet=document.getElementById('formSheet');
+  const inner=document.getElementById('formSheetInner');
+  inner.style.background='#111';
+  inner.style.border='1px solid '+(modalBand?modalBand.border:'#333');
+  document.getElementById('formTitle').textContent=isEdit?'Modify Booking':'Your details';
+  const sub=document.getElementById('formSub');
+  if(modalDate){
+    const selLbl=isEdit?'':getSelLabelFromIds(savedSelectedIds);
+    const dur=isEdit?'':getDurationFromIds(savedSelectedIds);
+    sub.textContent=modalDate.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+(isEdit?' - Will return to Pending after edit':' - '+selLbl+' ('+dur+')');
+    sub.style.color=isEdit?'#f59e0b':'#555';
+  }
+  document.getElementById('repeatSection').style.display=isEdit?'none':'block';
+  renderRepeatGrid();
+  validateForm();
+  sheet.style.display='flex';
+  setTimeout(()=>document.getElementById('fName').focus(),80);
+}
+
+function formBack(){
+  document.getElementById('formSheet').style.display='none';
+  if(!editingKey) document.getElementById('slotSheet').style.display='flex';
+}
+
+function renderRepeatGrid(){
+  const opts=[{v:'once',l:'Once'},{v:'daily',l:'Daily'},{v:'weekly',l:'Weekly'},{v:'monthly',l:'Monthly'}];
+  const grid=document.getElementById('repeatGrid');
+  grid.innerHTML='';
+  for(const o of opts){
+    const btn=document.createElement('button');
+    btn.className='repeat-btn'+(selectedRepeat===o.v?' active':'');
+    if(selectedRepeat===o.v&&modalBand){
+      btn.style.border='2px solid '+modalBand.hex;
+      btn.style.background=modalBand.hex+'18';
+      btn.style.color=modalBand.hex;
+    }
+    btn.innerHTML='<span>'+o.l+'</span>';
+    btn.onclick=()=>{ selectedRepeat=o.v; renderRepeatGrid(); updateRepeatHint(); };
+    grid.appendChild(btn);
+  }
+  updateRepeatHint();
+}
+
+function updateRepeatHint(){
+  const hints={once:'',daily:'Booked for 90 days',weekly:'Booked for 52 weeks',monthly:'Booked for 12 months'};
+  document.getElementById('repeatHint').textContent=hints[selectedRepeat]||'';
+}
+
+function validateForm(){
+  const name=document.getElementById('fName').value.trim();
+  const email=document.getElementById('fEmail').value.trim();
+  const valid=email.includes('@')&&email.includes('.')&&email.length>4;
+  const errEl=document.getElementById('emailErr');
+  if(email.length>0&&!valid){
+    errEl.style.display='block';
+    errEl.textContent=!email.includes('@')?'Please include an @ in the email address':'Please enter a valid email';
+  } else {
+    errEl.style.display='none';
+  }
+  const btn=document.getElementById('formSubmitBtn');
+  const canSubmit=name.length>0&&valid;
+  btn.style.background=canSubmit?(modalBand?modalBand.hex:'#818cf8'):'#1e1e1e';
+  btn.style.color=canSubmit?'#000':'#444';
+  btn.style.cursor=canSubmit?'pointer':'not-allowed';
+  btn.style.pointerEvents=canSubmit?'auto':'none';
+}
+
+function submitBooking(){
+  const name=document.getElementById('fName').value.trim();
+  const email=document.getElementById('fEmail').value.trim();
+  const wa=document.getElementById('fWA').value.trim();
+  const note=document.getElementById('fNote').value.trim();
+
+  if(editingKey&&bookings[editingKey]){
+    bookings[editingKey]={...bookings[editingKey],name,email,whatsapp:wa,note,status:'pending',editedAt:new Date().toISOString()};
+    saveBookings(bookings);
+    const savedBk=bookings[editingKey];
+    document.getElementById('formSheet').style.display='none';
+    showNotif('modified',savedBk,false);
+    renderCalendar();
+    return;
+  }
+
+  const ids=savedSelectedIds;
+  if(!ids.length){ showToast('No slots selected.'); return; }
+  const slots=getBandSlots();
+  const first=slots.find(s=>s.id===ids[0]);
+  const last=slots.find(s=>s.id===ids[ids.length-1]);
+  const fullLabel=pad(Math.floor(first.startMin/60))+':'+pad(first.startMin%60)+'-'+pad(Math.floor(last.endMin/60))+':'+pad(last.endMin%60);
+  const repeatId=selectedRepeat!=='once'?'repeat_'+Date.now():null;
+  const steps={once:[[0,0]],daily:Array.from({length:90},(_,i)=>[i,0]),weekly:Array.from({length:52},(_,i)=>[0,i*7]),monthly:Array.from({length:12},(_,i)=>[i*30,0])}[selectedRepeat]||[[0,0]];
+  let firstKey=null;
+  for(const[mo,da]of steps){
+    const d=new Date(modalDate);
+    if(selectedRepeat==='monthly') d.setMonth(d.getMonth()+mo);
+    else d.setDate(d.getDate()+da);
+    const ds=dateKey(d);
+    for(const sid of ids){
+      const k=slotKey(ds,sid);
+      if(bookings[k]&&bookings[k].status!=='rejected') continue;
+      const slot=ALL_SLOTS.find(s=>s.id===sid);
+      bookings[k]={name,email,whatsapp:wa,note,status:'pending',bookedAt:new Date().toISOString(),dateStr:ds,slotId:sid,slotLabel:slot.label,groupLabel:fullLabel,tier:slot?slot.tier:'',repeat:selectedRepeat,...(repeatId?{repeatId}:{})};
+      if(!firstKey) firstKey=k;
+    }
+  }
+  saveBookings(bookings);
+  const savedBk=firstKey?bookings[firstKey]:null;
+  document.getElementById('formSheet').style.display='none';
+  anchorSlot=null; rangeEndSlot=null;
+  if(savedBk) showNotif('booked',savedBk,false);
+  renderCalendar();
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+function waLink(num,msg){ return 'https://wa.me/'+num+'?text='+encodeURIComponent(msg); }
+function emailLink(to,subj,body){ return 'mailto:'+to+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body); }
+
+function buildCustMsg(event,bk){
+  const date=bk.dateStr?new Date(bk.dateStr+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'';
+  const slot=bk.groupLabel||bk.slotLabel||'';
+  const msgs={
+    booked:'Hi '+bk.name+',\n\nThank you for booking an English lesson with Modular English!\n\nDate: '+date+'\nTime: '+slot+'\n\nYour booking is pending confirmation. We will notify you once approved.\n\nBest regards,\nModular English',
+    confirmed:'Hi '+bk.name+',\n\nYour English lesson has been CONFIRMED.\n\nDate: '+date+'\nTime: '+slot+'\n\nWe look forward to seeing you!\n\nBest regards,\nModular English',
+    rejected:'Hi '+bk.name+',\n\nYour booking request could not be confirmed at this time.\n\nDate: '+date+'\nTime: '+slot+'\n\nPlease visit the calendar to choose another slot.\n\nBest regards,\nModular English',
+    modified:'Hi '+bk.name+',\n\nYour booking has been updated and is pending re-confirmation.\n\nNew Date: '+date+'\nTime: '+slot+'\n\nBest regards,\nModular English',
+  };
+  return msgs[event]||msgs.booked;
+}
+
+function buildTeacherMsg(event,bk){
+  const date=bk.dateStr?new Date(bk.dateStr+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'';
+  const slot=bk.groupLabel||bk.slotLabel||'';
+  const contact=[bk.email,bk.whatsapp].filter(Boolean).join(' / ');
+  const msgs={
+    booked:'New booking request!\n\nStudent: '+bk.name+'\nContact: '+contact+'\nDate: '+date+'\nTime: '+slot+'\n\nPlease log in to approve or reject.',
+    modified:'A student has modified their booking.\n\nStudent: '+bk.name+'\nContact: '+contact+'\nNew Date: '+date+'\nTime: '+slot+'\n\nPlease log in to review.',
+  };
+  return msgs[event]||msgs.booked;
+}
+
+function showNotif(event,bk,forTeacher){
+  notifData={event,bk,forTeacher};
+  const titles={booked:'Booking Requested',confirmed:'Booking Confirmed',rejected:'Booking Rejected',modified:'Booking Updated'};
+  document.getElementById('notifTitle').textContent=titles[event]||'Notification';
+  document.getElementById('notifSub').textContent='Tap to send notification to '+(forTeacher?'yourself':'the student');
+  const custMsg=buildCustMsg(event,bk);
+  const teacherMsg=buildTeacherMsg(event,bk);
+  const custWa=bk.whatsapp?bk.whatsapp.replace(/\D/g,''):null;
+  const custEmail=bk.email||null;
+  let html='';
+  if(!forTeacher){
+    html+='<div class="notif-section"><div class="notif-section-title">Notify Student</div>';
+    if(custWa) html+='<a href="'+waLink(custWa,custMsg)+'" target="_blank" class="notif-link" style="background:#0a2e1a;border:1px solid #16a34a;color:#4ade80;"><span style="font-size:20px;">WA</span><div><div class="notif-link-title">WhatsApp Student</div><div class="notif-link-sub">+'+custWa+'</div></div></a>';
+    if(custEmail) html+='<a href="'+emailLink(custEmail,'Your English Lesson',custMsg)+'" target="_blank" class="notif-link" style="background:#0a1a2e;border:1px solid #3b82f6;color:#60a5fa;"><span style="font-size:20px;">@</span><div><div class="notif-link-title">Email Student</div><div class="notif-link-sub">'+custEmail+'</div></div></a>';
+    if(!custWa&&!custEmail) html+='<div style="color:#555;font-size:12px;">No contact details saved.</div>';
+    html+='</div>';
+  }
+  html+='<div class="notif-section"><div class="notif-section-title">'+(forTeacher?'Your Notifications':'Also Notify Teacher')+'</div>';
+  html+='<a href="'+waLink(TEACHER_WA,forTeacher?teacherMsg:custMsg)+'" target="_blank" class="notif-link" style="background:#0a2e1a;border:1px solid #16a34a;color:#4ade80;"><span style="font-size:20px;">WA</span><div><div class="notif-link-title">WhatsApp Teacher</div><div class="notif-link-sub">+'+TEACHER_WA+'</div></div></a>';
+  html+='<a href="'+emailLink(TEACHER_EMAIL,'[MEB] '+titles[event]+' - '+bk.name,forTeacher?teacherMsg:custMsg)+'" target="_blank" class="notif-link" style="background:#0a1a2e;border:1px solid #3b82f6;color:#60a5fa;"><span style="font-size:20px;">@</span><div><div class="notif-link-title">Email Teacher</div><div class="notif-link-sub">'+TEACHER_EMAIL+'</div></div></a>';
+  html+='</div>';
+  document.getElementById('notifContent').innerHTML=html;
+  document.getElementById('notifSheet').style.display='flex';
+}
+
+function closeNotif(){
+  document.getElementById('notifSheet').style.display='none';
+  showToast('Done.');
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+function renderAdmin(){
+  bookings=loadBookings();
+  const all=Object.entries(bookings).sort((a,b)=>a[1].dateStr>b[1].dateStr?1:-1);
+  const groups={};
+  for(const[key,bk]of all){
+    const gk=bk.repeatId?'repeat__'+bk.repeatId:bk.dateStr+'__'+(bk.groupLabel||bk.slotLabel)+'__'+bk.name;
+    if(!groups[gk])groups[gk]={keys:[],bk,allDates:[]};
+    groups[gk].keys.push(key);
+    if(!groups[gk].allDates.includes(bk.dateStr))groups[gk].allDates.push(bk.dateStr);
+  }
+  for(const g of Object.values(groups))g.allDates.sort();
+
+  const counts={all:Object.keys(groups).length,pending:0,confirmed:0,rejected:0};
+  for(const{bk}of Object.values(groups)){
+    if(bk.status==='pending')counts.pending++;
+    else if(bk.status==='confirmed')counts.confirmed++;
+    else if(bk.status==='rejected')counts.rejected++;
+  }
+
+  // Filter tabs
+  const tabs=document.getElementById('filterTabs');
+  tabs.innerHTML='';
+  for(const[val,lbl]of[['all','All'],['pending','Pending'],['confirmed','Confirmed'],['rejected','Rejected']]){
+    const btn=document.createElement('button');
+    btn.className='filter-tab'+(adminFilter===val?' active':'');
+    btn.textContent=lbl+' ('+counts[val]+')';
+    btn.onclick=()=>{ adminFilter=val; renderAdmin(); };
+    tabs.appendChild(btn);
+  }
+
+  const list=document.getElementById('bookingList');
+  list.innerHTML='';
+  const filtered=Object.entries(groups).filter(([,{bk}])=>adminFilter==='all'||bk.status===adminFilter);
+  if(!filtered.length){ list.innerHTML='<div style="text-align:center;padding:60px;color:#333;">No bookings.</div>'; return; }
+
+  for(const[gk,{keys,bk,allDates}]of filtered){
+    const isRecurring=!!bk.repeatId;
+    const slot=ALL_SLOTS.find(s=>s.id===bk.slotId);
+    const d=new Date(bk.dateStr+'T12:00:00');
+    const firstDate=isRecurring?new Date(allDates[0]+'T12:00:00'):d;
+    const lastDate=isRecurring?new Date(allDates[allDates.length-1]+'T12:00:00'):d;
+    const uniqueDays=isRecurring?allDates.length:null;
+    const borderCol=bk.status==='confirmed'?'#166534':bk.status==='rejected'?'#7f1d1d':'#44400e';
+
+    const card=document.createElement('div');
+    card.className='booking-card';
+    card.style.border='1px solid '+borderCol;
+    card.id='card-'+gk.replace(/[^a-z0-9]/gi,'_');
+
+    const dateStr=isRecurring?
+      firstDate.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' to '+lastDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+' ('+uniqueDays+' sessions)':
+      d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+
+    const slotColor=slot?slot.hex:'#888';
+
+    card.innerHTML=`
+      <div class="booking-card-top">
+        <div class="booking-info">
+          <div class="booking-badges">
+            <span class="booking-name">${bk.name}</span>
+            <span class="badge badge-${bk.status}">${bk.status.charAt(0).toUpperCase()+bk.status.slice(1)}</span>
+            ${isRecurring?'<span class="badge badge-recurring">'+({daily:'Daily',weekly:'Weekly',monthly:'Monthly'}[bk.repeat]||'')+'</span>':''}
+          </div>
+          <div class="booking-email">${bk.email}${bk.whatsapp?'  WA:'+bk.whatsapp:''}</div>
+          ${bk.note?'<div class="booking-note">"'+bk.note+'"</div>':''}
+          <div class="booking-date" style="color:${slotColor}">${dateStr} - <strong>${bk.groupLabel||bk.slotLabel||''}</strong></div>
+          <div class="booking-tier">${bk.tier||''}</div>
+        </div>
+        <div class="booking-actions">
+          ${bk.status==='pending'?`
+            <button class="action-btn" style="background:#14532d;border-color:#16a34a;color:#4ade80;" onclick="adminAction('${gk}','accept')">OK${isRecurring?' All '+uniqueDays:''}</button>
+            <button class="action-btn" style="background:#450a0a;border-color:#dc2626;color:#f87171;" onclick="adminAction('${gk}','reject')">X${isRecurring?' All':''}</button>
+          `:''}
+          ${bk.status==='confirmed'?`<button class="action-btn" style="background:#450a0a;border-color:#dc2626;color:#f87171;" onclick="adminAction('${gk}','reject')">${isRecurring?'Cancel All':'Cancel'}</button>`:''}
+          <button class="action-btn" style="background:#1a1a2e;border-color:#3730a3;color:#818cf8;" onclick="toggleAdminEdit('${gk}')">Edit</button>
+          <button class="action-btn" style="background:#161616;border-color:#2a2a2a;color:#555;" onclick="adminAction('${gk}','delete')">Del</button>
+        </div>
+      </div>
+      <div id="edit-${gk.replace(/[^a-z0-9]/gi,'_')}" class="edit-panel" style="display:none;">
+        <div class="edit-panel-title">Edit Booking</div>
+        <div><span class="section-label">Name</span><input type="text" id="eName-${gk.replace(/[^a-z0-9]/gi,'_')}" value="${bk.name||''}" style="font-size:14px;"/></div>
+        <div><span class="section-label">Email</span><input type="text" id="eEmail-${gk.replace(/[^a-z0-9]/gi,'_')}" value="${bk.email||''}" style="font-size:14px;"/></div>
+        <div><span class="section-label">Note</span><textarea id="eNote-${gk.replace(/[^a-z0-9]/gi,'_')}" rows="2" style="font-size:14px;resize:none;">${bk.note||''}</textarea></div>
+        ${!isRecurring?'<div><span class="section-label">Date</span><input type="date" id="eDate-'+gk.replace(/[^a-z0-9]/gi,'_')+'" value="'+(bk.dateStr||'')+'" style="font-size:14px;color-scheme:dark;"/></div>':''}
+        <div>
+          <span class="section-label">Status</span>
+          <div class="status-btns">
+            <button class="status-btn ${bk.status==='pending'?'active-pending':''}" id="eStat-pending-${gk.replace(/[^a-z0-9]/gi,'_')}" onclick="setEditStatus('${gk}','pending')">Pending</button>
+            <button class="status-btn ${bk.status==='confirmed'?'active-confirmed':''}" id="eStat-confirmed-${gk.replace(/[^a-z0-9]/gi,'_')}" onclick="setEditStatus('${gk}','confirmed')">Confirmed</button>
+            <button class="status-btn ${bk.status==='rejected'?'active-rejected':''}" id="eStat-rejected-${gk.replace(/[^a-z0-9]/gi,'_')}" onclick="setEditStatus('${gk}','rejected')">Rejected</button>
+          </div>
+        </div>
+        <div class="edit-footer">
+          <button class="btn-secondary" onclick="toggleAdminEdit('${gk}')">Cancel</button>
+          <button onclick="saveAdminEdit('${gk}')" style="flex:2;background:#818cf8;border:none;color:#fff;padding:10px;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;">Save Changes</button>
+        </div>
+      </div>
+    `;
+    list.appendChild(card);
+  }
+
+  // Store groups for edit/action access
+  window._adminGroups=groups;
+}
+
+let _editStatuses={};
+function setEditStatus(gk,status){
+  _editStatuses[gk]=status;
+  const safeGk=gk.replace(/[^a-z0-9]/gi,'_');
+  for(const s of['pending','confirmed','rejected']){
+    const btn=document.getElementById('eStat-'+s+'-'+safeGk);
+    if(btn) btn.className='status-btn'+(status===s?' active-'+s:'');
+  }
+}
+
+function toggleAdminEdit(gk){
+  const safeGk=gk.replace(/[^a-z0-9]/gi,'_');
+  const panel=document.getElementById('edit-'+safeGk);
+  if(panel) panel.style.display=panel.style.display==='none'?'flex':'none';
+}
+
+function adminAction(gk,action){
+  const groups=window._adminGroups||{};
+  const g=groups[gk];
+  if(!g) return;
+  for(const k of g.keys){
+    if(action==='accept') bookings[k]={...bookings[k],status:'confirmed'};
+    else if(action==='reject') bookings[k]={...bookings[k],status:'rejected'};
+    else if(action==='delete') delete bookings[k];
+  }
+  saveBookings(bookings);
+  if(action!=='delete'){
+    const updBk=bookings[g.keys[0]];
+    if(updBk) showNotif(action==='accept'?'confirmed':'rejected',updBk,false);
+  } else {
+    showToast('Removed.');
+  }
+  renderAdmin();
+}
+
+function saveAdminEdit(gk){
+  const safeGk=gk.replace(/[^a-z0-9]/gi,'_');
+  const groups=window._adminGroups||{};
+  const g=groups[gk];
+  if(!g) return;
+  const name=document.getElementById('eName-'+safeGk)?.value||g.bk.name;
+  const email=document.getElementById('eEmail-'+safeGk)?.value||g.bk.email;
+  const note=document.getElementById('eNote-'+safeGk)?.value||'';
+  const dateStr=document.getElementById('eDate-'+safeGk)?.value||g.bk.dateStr;
+  const status=_editStatuses[gk]||g.bk.status;
+  for(const k of g.keys){
+    bookings[k]={...bookings[k],name,email,note,status,editedByTeacher:new Date().toISOString()};
+    if(dateStr!==g.bk.dateStr&&!g.bk.repeatId){
+      const nk=k.replace(/^\d{4}-\d{2}-\d{2}/,dateStr);
+      if(nk!==k){bookings[nk]={...bookings[k],dateStr};delete bookings[k];}
+    }
+  }
+  saveBookings(bookings);
+  const updBk=bookings[g.keys[0]]||{...g.bk,name,email,note,status};
+  showNotif('modified',updBk,false);
+  renderAdmin();
+}
+
+// ============================================================
+// CUSTOMER VIEW
+// ============================================================
+function custFind(){
+  const name=document.getElementById('custName').value.trim().toLowerCase();
+  const email=document.getElementById('custEmail').value.trim().toLowerCase();
+  if(!name||!email) return;
+  bookings=loadBookings();
+  custSearchResults=Object.entries(bookings).filter(([,bk])=>bk.name&&bk.email&&bk.name.toLowerCase()===name&&bk.email.toLowerCase()===email);
+  custEditGk=null;
+  renderCustResults();
+}
+
+function groupCustResults(){
+  const groups={};
+  for(const[key,bk]of custSearchResults){
+    const gk=bk.repeatId?'repeat__'+bk.repeatId:bk.dateStr+'__'+(bk.groupLabel||bk.slotLabel);
+    if(!groups[gk])groups[gk]={keys:[],bk,allDates:[]};
+    groups[gk].keys.push(key);
+    if(!groups[gk].allDates.includes(bk.dateStr))groups[gk].allDates.push(bk.dateStr);
+  }
+  for(const g of Object.values(groups))g.allDates.sort();
+  return groups;
+}
+
+function renderCustResults(){
+  const container=document.getElementById('custResults');
+  container.innerHTML='';
+  if(!custSearchResults.length){
+    container.innerHTML='<div style="text-align:center;color:#555;padding:30px;">No bookings found for those details.</div>';
+    return;
+  }
+  const groups=groupCustResults();
+  window._custGroups=groups;
+  for(const[gk,{keys,bk,allDates}]of Object.entries(groups)){
+    const isRecurring=!!bk.repeatId;
+    const slot=ALL_SLOTS.find(s=>s.id===bk.slotId);
+    const d=new Date(bk.dateStr+'T12:00:00');
+    const firstDate=isRecurring?new Date(allDates[0]+'T12:00:00'):d;
+    const lastDate=isRecurring?new Date(allDates[allDates.length-1]+'T12:00:00'):d;
+    const isEditing=custEditGk===gk;
+    const slotColor=slot?slot.hex:'#888';
+    const dateStr=isRecurring?
+      firstDate.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' to '+lastDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+' ('+allDates.length+' sessions)':
+      d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+
+    const card=document.createElement('div');
+    card.className='cust-result'+(isEditing?' editing':'');
+    card.innerHTML=`
+      <div class="cust-result-top">
+        <div style="flex:1;">
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;flex-wrap:wrap;">
+            <span class="badge badge-${bk.status}">${bk.status.charAt(0).toUpperCase()+bk.status.slice(1)}</span>
+            ${isRecurring?'<span class="badge badge-recurring">'+({daily:'Daily',weekly:'Weekly',monthly:'Monthly'}[bk.repeat]||'')+'</span>':''}
+          </div>
+          <div style="font-size:12px;color:${slotColor};margin-bottom:2px;">${dateStr} - <strong>${bk.groupLabel||bk.slotLabel||''}</strong></div>
+          ${bk.note&&!isEditing?'<div style="font-size:11px;color:#555;font-style:italic;">"'+bk.note+'"</div>':''}
+        </div>
+        <button onclick="toggleCustEdit('${gk}')" style="background:${isEditing?'#3730a3':'#1a1a2e'};border:1px solid #3730a3;color:#818cf8;padding:8px 12px;border-radius:7px;cursor:pointer;font-size:12px;">${isEditing?'X':'Edit'}</button>
+      </div>
+      ${isEditing?`
+      <div class="cust-edit-panel">
+        <div style="font-size:11px;color:#818cf8;margin-bottom:12px;font-weight:700;">Changes return to Pending for re-approval.</div>
+        <div style="margin-bottom:10px;"><span class="section-label">Date</span><input type="date" id="cDate-${gk.replace(/[^a-z0-9]/gi,'_')}" value="${bk.dateStr||''}" min="${dateKey(new Date())}" style="font-size:14px;color-scheme:dark;"/></div>
+        <div style="margin-bottom:10px;"><span class="section-label">Message</span><textarea id="cNote-${gk.replace(/[^a-z0-9]/gi,'_')}" rows="3" placeholder="Update your message..." style="font-size:14px;resize:none;">${bk.note||''}</textarea></div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="toggleCustEdit('${gk}')" class="btn-secondary" style="flex:1;">Cancel</button>
+          <button onclick="saveCustEdit('${gk}')" style="flex:2;background:#818cf8;border:none;color:#fff;padding:10px;border-radius:8px;cursor:pointer;font-weight:700;">Save &amp; Re-submit</button>
+        </div>
+      </div>
+      `:''}
+    `;
+    container.appendChild(card);
+  }
+}
+
+function toggleCustEdit(gk){
+  custEditGk=custEditGk===gk?null:gk;
+  renderCustResults();
+}
+
+function saveCustEdit(gk){
+  const safeGk=gk.replace(/[^a-z0-9]/gi,'_');
+  const groups=window._custGroups||{};
+  const g=groups[gk];
+  if(!g) return;
+  const newDateStr=document.getElementById('cDate-'+safeGk)?.value||g.bk.dateStr;
+  const note=document.getElementById('cNote-'+safeGk)?.value||'';
+  const dateChanged=newDateStr&&newDateStr!==g.bk.dateStr;
+  for(const k of g.keys){
+    const updBk={...bookings[k],note,dateStr:newDateStr,status:'pending',editedAt:new Date().toISOString()};
+    if(dateChanged&&!g.bk.repeatId){
+      const nk=k.replace(/^\d{4}-\d{2}-\d{2}/,newDateStr);
+      bookings[nk]=updBk; delete bookings[k];
+    } else {
+      bookings[k]=updBk;
+    }
+  }
+  saveBookings(bookings);
+  custEditGk=null;
+  const name=document.getElementById('custName').value.trim().toLowerCase();
+  const email=document.getElementById('custEmail').value.trim().toLowerCase();
+  custSearchResults=Object.entries(bookings).filter(([,bk])=>bk.name&&bk.email&&bk.name.toLowerCase()===name&&bk.email.toLowerCase()===email);
+  renderCustResults();
+  const notifBk=bookings[g.keys[0]]||{...g.bk,note,dateStr:newDateStr};
+  showNotif('modified',notifBk,true);
+  showToast('Booking updated - awaiting re-approval.');
+}
+
+// ============================================================
+// INIT
+// ============================================================
+updatePinDots();
+document.getElementById('flagBg').style.display='block';
+</script>
+</body>
+</html>
