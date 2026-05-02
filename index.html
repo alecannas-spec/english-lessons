@@ -1251,37 +1251,45 @@ function renderAdmin(){
   if(!filtered.length){ list.innerHTML='<div style="text-align:center;padding:60px;color:#333;">No bookings.</div>'; return; }
 
   for(const[gk,{keys,bk,allDates}]of filtered){
+    try{
     const isRecurring=!!bk.repeatId;
     const slot=ALL_SLOTS.find(s=>s.id===bk.slotId);
-    const d=new Date(bk.dateStr+'T12:00:00');
-    const firstDate=isRecurring?new Date(allDates[0]+'T12:00:00'):d;
-    const lastDate=isRecurring?new Date(allDates[allDates.length-1]+'T12:00:00'):d;
+    const d=new Date((bk.dateStr||'2026-01-01')+'T12:00:00');
+    const firstDate=isRecurring?new Date((allDates[0]||bk.dateStr)+'T12:00:00'):d;
+    const lastDate=isRecurring?new Date((allDates[allDates.length-1]||bk.dateStr)+'T12:00:00'):d;
     const uniqueDays=isRecurring?allDates.length:null;
     const borderCol=bk.status==='confirmed'?'#166534':bk.status==='rejected'?'#7f1d1d':'#44400e';
+    const safeGk=gk.replace(/[^a-z0-9]/gi,'_');
 
     const card=document.createElement('div');
     card.className='booking-card';
     card.style.border='1px solid '+borderCol;
-    card.id='card-'+gk.replace(/[^a-z0-9]/gi,'_');
+    card.id='card-'+safeGk;
 
     const dateStr=isRecurring?
       firstDate.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' to '+lastDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+' ('+uniqueDays+' sessions)':
       d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
 
     const slotColor=slot?slot.hex:'#888';
+    const safeName=(bk.name||'').replace(/[`<>"]/g,'');
+    const safeEmail=(bk.email||'').replace(/[`<>"]/g,'');
+    const safeNote=(bk.note||'').replace(/[`<>"]/g,'');
+    const safeLabel=(bk.groupLabel||bk.slotLabel||'').replace(/[`<>"]/g,'');
+    const safeTier=(bk.tier||'').replace(/[`<>"]/g,'');
+    const safeWa=(bk.whatsapp||'').replace(/[`<>"]/g,'');
 
     card.innerHTML=`
       <div class="booking-card-top">
         <div class="booking-info">
           <div class="booking-badges">
-            <span class="booking-name">${bk.name}</span>
-            <span class="badge badge-${bk.status}">${bk.status.charAt(0).toUpperCase()+bk.status.slice(1)}</span>
+            <span class="booking-name">${safeName}</span>
+            <span class="badge badge-${bk.status}">${bk.status?bk.status.charAt(0).toUpperCase()+bk.status.slice(1):'?'}</span>
             ${isRecurring?'<span class="badge badge-recurring">'+({daily:'Daily',weekly:'Weekly',monthly:'Monthly'}[bk.repeat]||'')+'</span>':''}
           </div>
-          <div class="booking-email">${bk.email}${bk.whatsapp?'  WA:'+bk.whatsapp:''}</div>
-          ${bk.note?'<div class="booking-note">"'+bk.note+'"</div>':''}
-          <div class="booking-date" style="color:${slotColor}">${dateStr} - <strong>${bk.groupLabel||bk.slotLabel||''}</strong></div>
-          <div class="booking-tier">${bk.tier||''}</div>
+          <div class="booking-email">${safeEmail}${safeWa?'  WA:'+safeWa:''}</div>
+          ${safeNote?'<div class="booking-note">"'+safeNote+'"</div>':''}
+          <div class="booking-date" style="color:${slotColor}">${dateStr} - <strong>${safeLabel}</strong></div>
+          <div class="booking-tier">${safeTier}</div>
         </div>
         <div class="booking-actions">
           ${bk.status==='pending'?`
@@ -1293,18 +1301,18 @@ function renderAdmin(){
           <button class="action-btn" style="background:#161616;border-color:#2a2a2a;color:#555;" onclick="adminAction('${gk}','delete')">Del</button>
         </div>
       </div>
-      <div id="edit-${gk.replace(/[^a-z0-9]/gi,'_')}" class="edit-panel" style="display:none;">
+      <div id="edit-${safeGk}" class="edit-panel" style="display:none;">
         <div class="edit-panel-title">Edit Booking</div>
-        <div><span class="section-label">Name</span><input type="text" id="eName-${gk.replace(/[^a-z0-9]/gi,'_')}" value="${bk.name||''}" style="font-size:14px;"/></div>
-        <div><span class="section-label">Email</span><input type="text" id="eEmail-${gk.replace(/[^a-z0-9]/gi,'_')}" value="${bk.email||''}" style="font-size:14px;"/></div>
-        <div><span class="section-label">Note</span><textarea id="eNote-${gk.replace(/[^a-z0-9]/gi,'_')}" rows="2" style="font-size:14px;resize:none;">${bk.note||''}</textarea></div>
-        ${!isRecurring?'<div><span class="section-label">Date</span><input type="date" id="eDate-'+gk.replace(/[^a-z0-9]/gi,'_')+'" value="'+(bk.dateStr||'')+'" style="font-size:14px;color-scheme:dark;"/></div><div><span class="section-label">Time</span><select id="eTime-'+gk.replace(/[^a-z0-9]/gi,'_')+'" style="background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 14px;border-radius:9px;font-size:14px;width:100%;outline:none;">'+ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===bk.slotId?' selected':'')+'>'+s.label+' ('+s.tier+')</option>').join('')+'</select></div>':''}
+        <div><span class="section-label">Name</span><input type="text" id="eName-${safeGk}" value="${safeName}" style="font-size:14px;"/></div>
+        <div><span class="section-label">Email</span><input type="text" id="eEmail-${safeGk}" value="${safeEmail}" style="font-size:14px;"/></div>
+        <div><span class="section-label">Note</span><textarea id="eNote-${safeGk}" rows="2" style="font-size:14px;resize:none;">${safeNote}</textarea></div>
+        ${!isRecurring?'<div><span class="section-label">Date</span><input type="date" id="eDate-'+safeGk+'" value="'+(bk.dateStr||'')+'" style="font-size:14px;color-scheme:dark;"/></div><div><span class="section-label">Time</span><select id="eTime-'+safeGk+'" style="background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 14px;border-radius:9px;font-size:14px;width:100%;outline:none;">'+ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===bk.slotId?' selected':'')+'>'+s.label+' ('+s.tier+')</option>').join('')+'</select></div>':''}
         <div>
           <span class="section-label">Status</span>
           <div class="status-btns">
-            <button class="status-btn ${bk.status==='pending'?'active-pending':''}" id="eStat-pending-${gk.replace(/[^a-z0-9]/gi,'_')}" onclick="setEditStatus('${gk}','pending')">Pending</button>
-            <button class="status-btn ${bk.status==='confirmed'?'active-confirmed':''}" id="eStat-confirmed-${gk.replace(/[^a-z0-9]/gi,'_')}" onclick="setEditStatus('${gk}','confirmed')">Confirmed</button>
-            <button class="status-btn ${bk.status==='rejected'?'active-rejected':''}" id="eStat-rejected-${gk.replace(/[^a-z0-9]/gi,'_')}" onclick="setEditStatus('${gk}','rejected')">Rejected</button>
+            <button class="status-btn ${bk.status==='pending'?'active-pending':''}" id="eStat-pending-${safeGk}" onclick="setEditStatus('${gk}','pending')">Pending</button>
+            <button class="status-btn ${bk.status==='confirmed'?'active-confirmed':''}" id="eStat-confirmed-${safeGk}" onclick="setEditStatus('${gk}','confirmed')">Confirmed</button>
+            <button class="status-btn ${bk.status==='rejected'?'active-rejected':''}" id="eStat-rejected-${safeGk}" onclick="setEditStatus('${gk}','rejected')">Rejected</button>
           </div>
         </div>
         <div class="edit-footer">
@@ -1314,6 +1322,7 @@ function renderAdmin(){
       </div>
     `;
     list.appendChild(card);
+    }catch(err){ console.error('Card render error for',gk,err); }
   }
 
   // Store groups for edit/action access
