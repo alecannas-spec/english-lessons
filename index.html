@@ -254,7 +254,7 @@ input,textarea{background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding
     </div>
     <div class="header-btns">
       <button class="nav-btn" onclick="showScreen('screen-customer')">My Bookings</button>
-      <button class="nav-btn" onclick="showScreen('screen-teacherpw')">Teacher</button>
+      <button class="nav-btn" onclick="goToTeacher()">Teacher</button>
     </div>
   </div>
   <div class="legend" id="calLegend"></div>
@@ -273,7 +273,7 @@ input,textarea{background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding
   <div class="admin-wrap">
     <div class="admin-header">
       <div class="admin-title">Teacher Dashboard</div>
-      <button class="nav-btn" onclick="showScreen('screen-pin')">Exit</button>
+      <button class="nav-btn" onclick="exitAdmin()">← Calendar</button>
     </div>
     <div class="filter-tabs" id="filterTabs"></div>
     <div class="booking-list" id="bookingList"></div>
@@ -434,6 +434,7 @@ let bookings = loadBookings();
 // STATE
 // ============================================================
 let calendarMode = 'student';
+let isTeacherLoggedIn = false;
 let weekOffset = 0;
 let modalDate = null;
 let modalBand = null;
@@ -522,6 +523,15 @@ function updatePinDots(){
     c.appendChild(d);
   }
 }
+function exitAdmin(){
+  goCalendar(calendarMode==='teacher'?'teacher':'student');
+}
+
+function goToTeacher(){
+  if(isTeacherLoggedIn){ showScreen('screen-admin'); }
+  else { showScreen('screen-teacherpw'); }
+}
+
 function goCalendar(mode){
   calendarMode=mode;
   pinVal='';
@@ -543,6 +553,7 @@ function teacherLogin(){
   if(val===ADMIN_PASSWORD){
     document.getElementById('teacherPwInput').value='';
     document.getElementById('teacherPwError').textContent='';
+    isTeacherLoggedIn=true;
     showScreen('screen-admin');
   } else {
     document.getElementById('teacherPwError').textContent='Wrong password';
@@ -964,7 +975,7 @@ function submitBooking(){
     saveBookings(bookings);
     const savedBk=bookings[editingKey];
     document.getElementById('formSheet').style.display='none';
-    showNotif('modified',savedBk,false);
+    autoNotify('modified',savedBk,true,true);
     renderCalendar();
     return;
   }
@@ -978,7 +989,7 @@ function submitBooking(){
   const repeatId=selectedRepeat!=='once'?'repeat_'+Date.now():null;
   const steps={once:[[0,0]],daily:Array.from({length:90},(_,i)=>[i,0]),weekly:Array.from({length:52},(_,i)=>[0,i*7]),monthly:Array.from({length:12},(_,i)=>[i*30,0])}[selectedRepeat]||[[0,0]];
 
-  // Check if ALL selected slots are free — if so, auto-approve
+  // Check if ALL selected slots are free - if so, auto-approve
   const ds=dateKey(modalDate);
   const allFree=ids.every(sid=>{
     const existing=bookings[slotKey(ds,sid)];
@@ -1007,14 +1018,10 @@ function submitBooking(){
 
   if(savedBk){
     if(autoStatus==='confirmed'){
-      // Auto-approved — notify teacher via WhatsApp automatically
-      const date=new Date(savedBk.dateStr+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-      const msg='New booking AUTO-CONFIRMED!\n\nStudent: '+name+'\nEmail: '+email+(wa?'\nWhatsApp: '+wa:'')+'\nDate: '+date+'\nTime: '+fullLabel+'\nTier: '+(savedBk.tier||'')+'\n\nSlot was free - automatically approved.';
-      window.open('https://wa.me/971585067893?text='+encodeURIComponent(msg),'_blank');
+      autoNotify('confirmed',savedBk,true,true);
       showToast('Booking confirmed!');
     } else {
-      // Some slots taken — needs manual approval
-      showNotif('booked',savedBk,false);
+      autoNotify('booked',savedBk,true,true);
     }
   }
   renderCalendar();
@@ -1023,6 +1030,34 @@ function submitBooking(){
 // ============================================================
 // NOTIFICATIONS
 // ============================================================
+// Auto-notify: opens WhatsApp/email immediately without extra taps
+function autoNotify(event, bk, notifyTeacher=true, notifyStudent=true){
+  const date=bk.dateStr?new Date(bk.dateStr+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'';
+  const slot=bk.groupLabel||bk.slotLabel||'';
+  const titles={booked:'Booking Requested',confirmed:'Booking Confirmed',rejected:'Booking Rejected',modified:'Booking Updated'};
+  const studentMsg={
+    booked:'Hi '+bk.name+',\n\nYour booking request has been received!\n\nDate: '+date+'\nTime: '+slot+'\nStatus: '+(bk.status==='confirmed'?'AUTO-CONFIRMED':'Pending confirmation')+'\n\nModular English',
+    confirmed:'Hi '+bk.name+',\n\nYour lesson is CONFIRMED!\n\nDate: '+date+'\nTime: '+slot+'\n\nSee you soon!\nModular English',
+    rejected:'Hi '+bk.name+',\n\nUnfortunately we could not confirm your booking.\n\nDate: '+date+'\nTime: '+slot+'\n\nPlease choose another slot.\nModular English',
+    modified:'Hi '+bk.name+',\n\nYour booking has been updated and is pending re-confirmation.\n\nDate: '+date+'\nTime: '+slot+'\n\nModular English',
+  }[event]||'';
+  const teacherMsg={
+    booked:'NEW BOOKING: '+bk.name+'\nDate: '+date+'\nTime: '+slot+'\nEmail: '+bk.email+(bk.whatsapp?'\nWA: '+bk.whatsapp:'')+'\nStatus: '+(bk.status==='confirmed'?'AUTO-CONFIRMED':'Pending your approval'),
+    confirmed:'CONFIRMED: '+bk.name+'\nDate: '+date+'\nTime: '+slot,
+    rejected:'REJECTED: '+bk.name+'\nDate: '+date+'\nTime: '+slot,
+    modified:'MODIFIED: '+bk.name+'\nDate: '+date+'\nTime: '+slot+'\nNeeds re-approval',
+  }[event]||'';
+
+  if(notifyStudent){
+    const custWa=bk.whatsapp?bk.whatsapp.replace(/\D/g,''):null;
+    if(custWa) window.open('https://wa.me/'+custWa+'?text='+encodeURIComponent(studentMsg),'_blank');
+    else if(bk.email) window.open('mailto:'+bk.email+'?subject='+encodeURIComponent('Your English Lesson - '+titles[event])+'&body='+encodeURIComponent(studentMsg));
+  }
+  if(notifyTeacher){
+    setTimeout(()=>window.open('https://wa.me/'+TEACHER_WA+'?text='+encodeURIComponent(teacherMsg),'_blank'), notifyStudent?600:0);
+  }
+}
+
 function waLink(num,msg){ return 'https://wa.me/'+num+'?text='+encodeURIComponent(msg); }
 function emailLink(to,subj,body){ return 'mailto:'+to+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body); }
 
@@ -1215,7 +1250,7 @@ function adminAction(gk,action){
   saveBookings(bookings);
   if(action!=='delete'){
     const updBk=bookings[g.keys[0]];
-    if(updBk) showNotif(action==='accept'?'confirmed':'rejected',updBk,false);
+    if(updBk) autoNotify(action==='accept'?'confirmed':'rejected',updBk,true,true);
   } else {
     showToast('Removed.');
   }
@@ -1255,7 +1290,7 @@ function saveAdminEdit(gk){
   }
   saveBookings(bookings);
   const updBk=bookings[g.keys[0]]||{...g.bk,name,email,note,status};
-  showNotif('modified',updBk,false);
+  autoNotify('modified',updBk,true,true);
   renderAdmin();
 }
 
@@ -1318,6 +1353,7 @@ function renderCustResults(){
           ${bk.note&&!isEditing?'<div style="font-size:11px;color:#555;font-style:italic;">"'+bk.note+'"</div>':''}
         </div>
         <button onclick="toggleCustEdit('${gk}')" style="background:${isEditing?'#3730a3':'#1a1a2e'};border:1px solid #3730a3;color:#818cf8;padding:8px 12px;border-radius:7px;cursor:pointer;font-size:12px;">${isEditing?'X':'Edit'}</button>
+        <button onclick="custDelete('${gk}')" style="background:#161616;border:1px solid #2a2a2a;color:#555;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:12px;">Del</button>
       </div>
       ${isEditing?`
       <div class="cust-edit-panel">
@@ -1339,6 +1375,20 @@ function renderCustResults(){
 function toggleCustEdit(gk){
   custEditGk=custEditGk===gk?null:gk;
   renderCustResults();
+}
+
+function custDelete(gk){
+  if(!confirm('Delete this booking?')) return;
+  const groups=window._custGroups||{};
+  const g=groups[gk];
+  if(!g) return;
+  for(const k of g.keys) delete bookings[k];
+  saveBookings(bookings);
+  const name=document.getElementById('custName').value.trim().toLowerCase();
+  const email=document.getElementById('custEmail').value.trim().toLowerCase();
+  custSearchResults=Object.entries(bookings).filter(([,bk])=>bk.name&&bk.email&&bk.name.toLowerCase()===name&&bk.email.toLowerCase()===email);
+  renderCustResults();
+  showToast('Booking deleted.');
 }
 
 function saveCustEdit(gk){
@@ -1373,7 +1423,7 @@ function saveCustEdit(gk){
   custSearchResults=Object.entries(bookings).filter(([,bk])=>bk.name&&bk.email&&bk.name.toLowerCase()===name&&bk.email.toLowerCase()===email);
   renderCustResults();
   const notifBk=bookings[g.keys[0]]||{...g.bk,note,dateStr:newDateStr};
-  showNotif('modified',notifBk,true);
+  autoNotify('modified',notifBk,true,false);
   showToast('Booking updated - awaiting re-approval.');
 }
 
