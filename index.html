@@ -292,7 +292,7 @@ input,textarea{background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding
       <div class="cust-search">
         <div class="cust-hint">Enter your name and email to find your bookings</div>
         <div style="display:flex;flex-direction:column;gap:10px;">
-          <input type="text" id="custName" placeholder="Your name"/>
+          <input type="text" id="custName" placeholder="Your name" onblur="autofillCustSearch()"/>
           <input type="text" id="custEmail" placeholder="Email address" inputmode="email"/>
           <button onclick="custFind()" style="background:#818cf8;border:none;color:#fff;padding:13px;border-radius:9px;cursor:pointer;font-weight:700;font-size:15px;">Find My Bookings</button>
         </div>
@@ -331,7 +331,7 @@ input,textarea{background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding
       <div class="form-title" id="formTitle"></div>
       <div class="form-sub" id="formSub"></div>
       <div class="form-fields">
-        <input type="text" id="fName" placeholder="Your name" autocomplete="name" enterkeyhint="next" oninput="validateForm()" onkeydown="if(event.key==='Enter')document.getElementById('fEmail').focus()"/>
+        <input type="text" id="fName" placeholder="Your name" autocomplete="name" enterkeyhint="next" oninput="validateForm()" onblur="autofillFromName()" onkeydown="if(event.key==='Enter'){autofillFromName();document.getElementById('fEmail').focus()}"/>
         <input type="text" id="fEmail" placeholder="Email address (for notifications)" autocomplete="email" inputmode="email" enterkeyhint="next" oninput="validateForm()" onkeydown="if(event.key==='Enter')document.getElementById('fWA').focus()"/>
         <div class="field-err" id="emailErr" style="display:none;">Please include an @ in the email address</div>
         <input type="text" id="fWA" placeholder="WhatsApp number (optional, with country code)" inputmode="tel" enterkeyhint="next" onkeydown="if(event.key==='Enter')document.getElementById('fNote').focus()"/>
@@ -428,6 +428,37 @@ const ALL_SLOTS = [...ALL_SLOTS_NORMAL,...ALL_SLOTS_SUMMER.filter(s=>!ALL_SLOTS_
 const SK = 'meb_bookings_v1';
 function loadBookings(){ try{ const d=localStorage.getItem(SK); return d?JSON.parse(d):{}; }catch(e){ return {}; } }
 function saveBookings(data){ try{ localStorage.setItem(SK,JSON.stringify(data)); }catch(e){} }
+
+// Customer profile storage - remembers name, email, whatsapp
+const PROFILES_KEY = 'meb_profiles_v1';
+function loadProfiles(){ try{ const d=localStorage.getItem(PROFILES_KEY); return d?JSON.parse(d):{}; }catch(e){ return {}; } }
+function saveProfile(name, email, wa){
+  if(!name||!email) return;
+  const profiles=loadProfiles();
+  profiles[name.toLowerCase().trim()]={name:name.trim(),email:email.trim(),whatsapp:wa||''};
+  try{ localStorage.setItem(PROFILES_KEY,JSON.stringify(profiles)); }catch(e){}
+}
+function getProfile(name){
+  if(!name) return null;
+  const profiles=loadProfiles();
+  return profiles[name.toLowerCase().trim()]||null;
+}
+function autofillFromName(){
+  const name=document.getElementById('fName').value;
+  const profile=getProfile(name);
+  if(profile){
+    if(!document.getElementById('fEmail').value) document.getElementById('fEmail').value=profile.email;
+    if(!document.getElementById('fWA').value) document.getElementById('fWA').value=profile.whatsapp||'';
+    validateForm();
+  }
+}
+function autofillCustSearch(){
+  const name=document.getElementById('custName').value;
+  const profile=getProfile(name);
+  if(profile){
+    if(!document.getElementById('custEmail').value) document.getElementById('custEmail').value=profile.email;
+  }
+}
 let bookings = loadBookings();
 
 // ============================================================
@@ -911,6 +942,20 @@ function openFormSheet(isEdit){
   }
   document.getElementById('repeatSection').style.display=isEdit?'none':'block';
   renderRepeatGrid();
+
+  // Pre-fill from last known profile if fields are empty and this is a new booking
+  if(!isEdit){
+    const lastProfile=localStorage.getItem('meb_last_profile');
+    if(lastProfile){
+      try{
+        const p=JSON.parse(lastProfile);
+        if(!document.getElementById('fName').value) document.getElementById('fName').value=p.name||'';
+        if(!document.getElementById('fEmail').value) document.getElementById('fEmail').value=p.email||'';
+        if(!document.getElementById('fWA').value) document.getElementById('fWA').value=p.whatsapp||'';
+        validateForm();
+      }catch(e){}
+    }
+  }
   validateForm();
   sheet.style.display='flex';
   setTimeout(()=>document.getElementById('fName').focus(),80);
@@ -970,6 +1015,10 @@ function submitBooking(){
   const wa=document.getElementById('fWA').value.trim();
   const note=document.getElementById('fNote').value.trim();
 
+  // Save profile for future autofill
+  saveProfile(name, email, wa);
+  try{ localStorage.setItem('meb_last_profile', JSON.stringify({name,email,whatsapp:wa})); }catch(e){}
+
   if(editingKey&&bookings[editingKey]){
     bookings[editingKey]={...bookings[editingKey],name,email,whatsapp:wa,note,status:'pending',editedAt:new Date().toISOString()};
     saveBookings(bookings);
@@ -987,27 +1036,52 @@ function submitBooking(){
   const last=slots.find(s=>s.id===ids[ids.length-1]);
   const fullLabel=pad(Math.floor(first.startMin/60))+':'+pad(first.startMin%60)+'-'+pad(Math.floor(last.endMin/60))+':'+pad(last.endMin%60);
   const repeatId=selectedRepeat!=='once'?'repeat_'+Date.now():null;
-  const steps={once:[[0,0]],daily:Array.from({length:90},(_,i)=>[i,0]),weekly:Array.from({length:52},(_,i)=>[0,i*7]),monthly:Array.from({length:12},(_,i)=>[i*30,0])}[selectedRepeat]||[[0,0]];
 
-  // Check if ALL selected slots are free - if so, auto-approve
+  // Build list of dates - recurring series skips Sat(6) and Sun(0)
+  let datesToBook=[];
+  if(selectedRepeat==='once'){
+    datesToBook=[new Date(modalDate)];
+  } else if(selectedRepeat==='daily'){
+    let count=0, offset=0;
+    while(count<90){
+      const d=new Date(modalDate); d.setDate(d.getDate()+offset);
+      const dow=d.getDay();
+      if(dow!==0&&dow!==6){ datesToBook.push(new Date(d)); count++; }
+      offset++;
+    }
+  } else if(selectedRepeat==='weekly'){
+    for(let i=0;i<52;i++){
+      const d=new Date(modalDate); d.setDate(d.getDate()+i*7);
+      const dow=d.getDay();
+      if(dow!==0&&dow!==6) datesToBook.push(new Date(d));
+    }
+  } else if(selectedRepeat==='monthly'){
+    for(let i=0;i<12;i++){
+      const d=new Date(modalDate); d.setMonth(d.getMonth()+i);
+      const dow=d.getDay();
+      if(dow!==0&&dow!==6) datesToBook.push(new Date(d));
+    }
+  }
+
+  // Auto-approve only on weekdays (Mon-Fri). Sat/Sun always need manual approval.
   const ds=dateKey(modalDate);
+  const bookingDow=modalDate.getDay();
+  const isWeekend=bookingDow===0||bookingDow===6;
   const allFree=ids.every(sid=>{
     const existing=bookings[slotKey(ds,sid)];
     return !existing||existing.status==='rejected';
   });
-  const autoStatus = allFree ? 'confirmed' : 'pending';
+  const autoStatus=(allFree&&!isWeekend)?'confirmed':'pending';
 
   let firstKey=null;
-  for(const[mo,da]of steps){
-    const d=new Date(modalDate);
-    if(selectedRepeat==='monthly') d.setMonth(d.getMonth()+mo);
-    else d.setDate(d.getDate()+da);
+  for(const d of datesToBook){
     const ds2=dateKey(d);
     for(const sid of ids){
       const k=slotKey(ds2,sid);
       if(bookings[k]&&bookings[k].status!=='rejected') continue;
       const slot=ALL_SLOTS.find(s=>s.id===sid);
-      bookings[k]={name,email,whatsapp:wa,note,status:autoStatus,bookedAt:new Date().toISOString(),dateStr:ds2,slotId:sid,slotLabel:slot.label,groupLabel:fullLabel,tier:slot?slot.tier:'',repeat:selectedRepeat,...(repeatId?{repeatId}:{})};
+      const repeatLabel={once:'Once',daily:'Daily',weekly:'Weekly',monthly:'Monthly'}[selectedRepeat]||'';
+      bookings[k]={name,email,whatsapp:wa,note,status:autoStatus,bookedAt:new Date().toISOString(),dateStr:ds2,slotId:sid,slotLabel:slot.label,groupLabel:fullLabel,tier:slot?slot.tier:'',repeat:selectedRepeat,repeatLabel,...(repeatId?{repeatId}:{})};
       if(!firstKey) firstKey=k;
     }
   }
@@ -1035,17 +1109,18 @@ function autoNotify(event, bk, notifyTeacher=true, notifyStudent=true){
   const date=bk.dateStr?new Date(bk.dateStr+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'';
   const slot=bk.groupLabel||bk.slotLabel||'';
   const titles={booked:'Booking Requested',confirmed:'Booking Confirmed',rejected:'Booking Rejected',modified:'Booking Updated'};
+  const repeatStr=bk.repeatLabel&&bk.repeatLabel!=='Once'?'\nRecurrence: '+bk.repeatLabel:'';
   const studentMsg={
-    booked:'Hi '+bk.name+',\n\nYour booking request has been received!\n\nDate: '+date+'\nTime: '+slot+'\nStatus: '+(bk.status==='confirmed'?'AUTO-CONFIRMED':'Pending confirmation')+'\n\nModular English',
-    confirmed:'Hi '+bk.name+',\n\nYour lesson is CONFIRMED!\n\nDate: '+date+'\nTime: '+slot+'\n\nSee you soon!\nModular English',
-    rejected:'Hi '+bk.name+',\n\nUnfortunately we could not confirm your booking.\n\nDate: '+date+'\nTime: '+slot+'\n\nPlease choose another slot.\nModular English',
-    modified:'Hi '+bk.name+',\n\nYour booking has been updated and is pending re-confirmation.\n\nDate: '+date+'\nTime: '+slot+'\n\nModular English',
+    booked:'Hi '+bk.name+',\n\nYour booking request has been received!\n\nDate: '+date+'\nTime: '+slot+repeatStr+'\nStatus: '+(bk.status==='confirmed'?'AUTO-CONFIRMED':'Pending confirmation')+'\n\nModular English',
+    confirmed:'Hi '+bk.name+',\n\nYour lesson is CONFIRMED!\n\nDate: '+date+'\nTime: '+slot+repeatStr+'\n\nSee you soon!\nModular English',
+    rejected:'Hi '+bk.name+',\n\nUnfortunately we could not confirm your booking.\n\nDate: '+date+'\nTime: '+slot+repeatStr+'\n\nPlease choose another slot.\nModular English',
+    modified:'Hi '+bk.name+',\n\nYour booking has been updated and is pending re-confirmation.\n\nDate: '+date+'\nTime: '+slot+repeatStr+'\n\nModular English',
   }[event]||'';
   const teacherMsg={
-    booked:'NEW BOOKING: '+bk.name+'\nDate: '+date+'\nTime: '+slot+'\nEmail: '+bk.email+(bk.whatsapp?'\nWA: '+bk.whatsapp:'')+'\nStatus: '+(bk.status==='confirmed'?'AUTO-CONFIRMED':'Pending your approval'),
-    confirmed:'CONFIRMED: '+bk.name+'\nDate: '+date+'\nTime: '+slot,
-    rejected:'REJECTED: '+bk.name+'\nDate: '+date+'\nTime: '+slot,
-    modified:'MODIFIED: '+bk.name+'\nDate: '+date+'\nTime: '+slot+'\nNeeds re-approval',
+    booked:'NEW BOOKING: '+bk.name+'\nDate: '+date+'\nTime: '+slot+repeatStr+'\nEmail: '+bk.email+(bk.whatsapp?'\nWA: '+bk.whatsapp:'')+'\nStatus: '+(bk.status==='confirmed'?'AUTO-CONFIRMED':'Pending your approval'),
+    confirmed:'CONFIRMED: '+bk.name+'\nDate: '+date+'\nTime: '+slot+repeatStr,
+    rejected:'REJECTED: '+bk.name+'\nDate: '+date+'\nTime: '+slot+repeatStr,
+    modified:'MODIFIED: '+bk.name+'\nDate: '+date+'\nTime: '+slot+repeatStr+'\nNeeds re-approval',
   }[event]||'';
 
   if(notifyStudent){
