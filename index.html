@@ -273,7 +273,11 @@ input,textarea{background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding
   <div class="admin-wrap">
     <div class="admin-header">
       <div class="admin-title">Teacher Dashboard</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="nav-btn" onclick="exitAdmin()">← Calendar</button>
+      <button class="nav-btn" onclick="showScreen('screen-customer')">My Bookings</button>
+      <button class="nav-btn" style="background:#450a0a;border-color:#7f1d1d;color:#f87171;" onclick="logoutTeacher()">Logout</button>
+    </div>
     </div>
     <div class="filter-tabs" id="filterTabs"></div>
     <div class="booking-list" id="bookingList"></div>
@@ -556,6 +560,12 @@ function updatePinDots(){
 }
 function exitAdmin(){
   goCalendar(calendarMode==='teacher'?'teacher':'student');
+}
+
+function logoutTeacher(){
+  isTeacherLoggedIn=false;
+  calendarMode='student';
+  showScreen('screen-pin');
 }
 
 function goToTeacher(){
@@ -1063,39 +1073,42 @@ function submitBooking(){
     }
   }
 
-  // Auto-approve only on weekdays (Mon-Fri). Sat/Sun always need manual approval.
-  const ds=dateKey(modalDate);
-  const bookingDow=modalDate.getDay();
-  const isWeekend=bookingDow===0||bookingDow===6;
-  const allFree=ids.every(sid=>{
-    const existing=bookings[slotKey(ds,sid)];
-    return !existing||existing.status==='rejected';
-  });
-  const autoStatus=(allFree&&!isWeekend)?'confirmed':'pending';
+  // Auto-approve only on weekdays per date - checked inside loop below
 
   let firstKey=null;
   for(const d of datesToBook){
     const ds2=dateKey(d);
+    const dow2=d.getDay();
+    const isWeekendDate=dow2===0||dow2===6;
+    // Per-date auto-approve: weekdays only, slot must be free
+    const slotsFreeForDate=ids.every(sid=>{
+      const existing=bookings[slotKey(ds2,sid)];
+      return !existing||existing.status==='rejected';
+    });
+    const dateStatus=(slotsFreeForDate&&!isWeekendDate)?'confirmed':'pending';
     for(const sid of ids){
       const k=slotKey(ds2,sid);
       if(bookings[k]&&bookings[k].status!=='rejected') continue;
       const slot=ALL_SLOTS.find(s=>s.id===sid);
       const repeatLabel={once:'Once',daily:'Daily',weekly:'Weekly',monthly:'Monthly'}[selectedRepeat]||'';
-      bookings[k]={name,email,whatsapp:wa,note,status:autoStatus,bookedAt:new Date().toISOString(),dateStr:ds2,slotId:sid,slotLabel:slot.label,groupLabel:fullLabel,tier:slot?slot.tier:'',repeat:selectedRepeat,repeatLabel,...(repeatId?{repeatId}:{})};
+      bookings[k]={name,email,whatsapp:wa,note,status:dateStatus,bookedAt:new Date().toISOString(),dateStr:ds2,slotId:sid,slotLabel:slot.label,groupLabel:fullLabel,tier:slot?slot.tier:'',repeat:selectedRepeat,repeatLabel,...(repeatId?{repeatId}:{})};
       if(!firstKey) firstKey=k;
     }
   }
+  // Use first booking's status for notification
+  const firstStatus=firstKey?bookings[firstKey]?.status:'pending';
   saveBookings(bookings);
   const savedBk=firstKey?bookings[firstKey]:null;
   document.getElementById('formSheet').style.display='none';
   anchorSlot=null; rangeEndSlot=null;
 
   if(savedBk){
-    if(autoStatus==='confirmed'){
+    if(firstStatus==='confirmed'){
       autoNotify('confirmed',savedBk,true,true);
       showToast('Booking confirmed!');
     } else {
       autoNotify('booked',savedBk,true,true);
+      showToast('Booking requested - awaiting approval.');
     }
   }
   renderCalendar();
@@ -1477,20 +1490,39 @@ function saveCustEdit(gk){
   const note=document.getElementById('cNote-'+safeGk)?.value||'';
   const dateChanged=newDateStr&&newDateStr!==g.bk.dateStr;
   const timeChanged=newSlotId&&newSlotId!==g.bk.slotId;
-  for(const k of g.keys){
-    const updBk={...bookings[k],note,dateStr:newDateStr,
+  const isRecurring=!!g.bk.repeatId;
+
+  // If recurring and date/time changed, ask scope
+  let applyToAll=false;
+  if(isRecurring&&(dateChanged||timeChanged)){
+    applyToAll=confirm('This is a recurring booking.\n\nOK = Change ALL sessions in the series\nCancel = Change only this session');
+  }
+
+  const keysToUpdate=applyToAll?g.keys:[g.keys[0]];
+
+  for(const k of keysToUpdate){
+    const origBk=bookings[k];
+    if(!origBk) continue;
+    const useDateStr=applyToAll?origBk.dateStr:newDateStr; // for all: keep each date, just update time/note
+    const updBk={...origBk,note,
       slotId:newSlotId,
-      slotLabel:newSlot?newSlot.label:g.bk.slotLabel,
-      groupLabel:newSlot?newSlot.label:g.bk.groupLabel,
-      tier:newSlot?newSlot.tier:g.bk.tier,
+      slotLabel:newSlot?newSlot.label:origBk.slotLabel,
+      groupLabel:newSlot?newSlot.label:origBk.groupLabel,
+      tier:newSlot?newSlot.tier:origBk.tier,
       status:'pending',editedAt:new Date().toISOString()};
-    if((dateChanged||timeChanged)&&!g.bk.repeatId){
+    if((dateChanged||timeChanged)&&!applyToAll){
+      // Single session: move to new key
       const nk=slotKey(newDateStr,newSlotId);
+      bookings[nk]=updBk; delete bookings[k];
+    } else if(timeChanged&&applyToAll){
+      // All sessions: update time but keep each session's date
+      const nk=slotKey(origBk.dateStr,newSlotId);
       bookings[nk]=updBk; delete bookings[k];
     } else {
       bookings[k]=updBk;
     }
   }
+
   saveBookings(bookings);
   custEditGk=null;
   const name=document.getElementById('custName').value.trim().toLowerCase();
