@@ -256,6 +256,7 @@ input,textarea{background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding
     <div class="header-btns">
       <button class="nav-btn" onclick="showScreen('screen-customer')">My Bookings</button>
       <button class="nav-btn" onclick="goToTeacher()">Teacher</button>
+      <button class="nav-btn" id="teacherLogoutBtn" onclick="logoutTeacher()" style="display:none;background:#450a0a;border:1px solid #7f1d1d;color:#f87171;">Logout</button>
     </div>
   </div>
   <div class="legend" id="calLegend"></div>
@@ -634,8 +635,9 @@ function renderCalendar(){
   const midMonth=dates[3].getMonth()+1;
   const bands=getBands(midMonth);
 
-  // Teacher badge
+  // Teacher badge and logout button
   document.getElementById('teacherBadge').style.display=calendarMode==='teacher'?'flex':'none';
+  document.getElementById('teacherLogoutBtn').style.display=calendarMode==='teacher'?'block':'none';
 
   // Week label
   const fmt=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
@@ -1147,18 +1149,20 @@ function submitBooking(){
 // ============================================================
 // NOTIFICATIONS
 // ============================================================
-// Auto-notify: opens WhatsApp/email immediately without extra taps
+// Auto-notify: shows notification links without auto-opening (prevents Safari page reload)
 function autoNotify(event, bk, notifyTeacher=true, notifyStudent=true){
   const date=bk.dateStr?new Date(bk.dateStr+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'';
   const slot=bk.groupLabel||bk.slotLabel||'';
-  const titles={booked:'Booking Requested',confirmed:'Booking Confirmed',rejected:'Booking Rejected',modified:'Booking Updated'};
   const repeatStr=bk.repeatLabel&&bk.repeatLabel!=='Once'?'\nRecurrence: '+bk.repeatLabel:'';
+  const titles={booked:'Booking Requested',confirmed:'Booking Confirmed',rejected:'Booking Rejected',modified:'Booking Updated'};
+
   const studentMsg={
     booked:'Hi '+bk.name+',\n\nYour booking request has been received!\n\nDate: '+date+'\nTime: '+slot+repeatStr+'\nStatus: '+(bk.status==='confirmed'?'AUTO-CONFIRMED':'Pending confirmation')+'\n\nModular English',
     confirmed:'Hi '+bk.name+',\n\nYour lesson is CONFIRMED!\n\nDate: '+date+'\nTime: '+slot+repeatStr+'\n\nSee you soon!\nModular English',
     rejected:'Hi '+bk.name+',\n\nUnfortunately we could not confirm your booking.\n\nDate: '+date+'\nTime: '+slot+repeatStr+'\n\nPlease choose another slot.\nModular English',
-    modified:'Hi '+bk.name+',\n\nYour booking has been updated and is pending re-confirmation.\n\nDate: '+date+'\nTime: '+slot+repeatStr+'\n\nModular English',
+    modified:'Hi '+bk.name+',\n\nYour booking has been updated.\n\nDate: '+date+'\nTime: '+slot+repeatStr+'\n\nModular English',
   }[event]||'';
+
   const teacherMsg={
     booked:'NEW BOOKING: '+bk.name+'\nDate: '+date+'\nTime: '+slot+repeatStr+'\nEmail: '+bk.email+(bk.whatsapp?'\nWA: '+bk.whatsapp:'')+'\nStatus: '+(bk.status==='confirmed'?'AUTO-CONFIRMED':'Pending your approval'),
     confirmed:'CONFIRMED: '+bk.name+'\nDate: '+date+'\nTime: '+slot+repeatStr,
@@ -1166,14 +1170,28 @@ function autoNotify(event, bk, notifyTeacher=true, notifyStudent=true){
     modified:'MODIFIED: '+bk.name+'\nDate: '+date+'\nTime: '+slot+repeatStr+'\nNeeds re-approval',
   }[event]||'';
 
+  const custWa=bk.whatsapp?bk.whatsapp.replace(/\D/g,''):null;
+
+  // Build notification sheet HTML with tap-to-send links
+  let html='';
   if(notifyStudent){
-    const custWa=bk.whatsapp?bk.whatsapp.replace(/\D/g,''):null;
-    if(custWa) window.open('https://wa.me/'+custWa+'?text='+encodeURIComponent(studentMsg),'_blank');
-    else if(bk.email) window.open('mailto:'+bk.email+'?subject='+encodeURIComponent('Your English Lesson - '+titles[event])+'&body='+encodeURIComponent(studentMsg));
+    html+='<div class="notif-section"><div class="notif-section-title">Notify Student</div>';
+    if(custWa) html+='<a href="'+waLink(custWa,studentMsg)+'" target="_blank" class="notif-link" style="background:#0a2e1a;border:1px solid #16a34a;color:#4ade80;"><span style="font-size:20px;">WA</span><div><div class="notif-link-title">WhatsApp Student</div><div class="notif-link-sub">+'+custWa+'</div></div></a>';
+    if(bk.email) html+='<a href="'+emailLink(bk.email,'Your English Lesson - '+titles[event],studentMsg)+'" class="notif-link" style="background:#0a1a2e;border:1px solid #3b82f6;color:#60a5fa;"><span style="font-size:20px;">@</span><div><div class="notif-link-title">Email Student</div><div class="notif-link-sub">'+bk.email+'</div></div></a>';
+    if(!custWa&&!bk.email) html+='<div style="color:#555;font-size:12px;">No contact details saved.</div>';
+    html+='</div>';
   }
   if(notifyTeacher){
-    setTimeout(()=>window.open('https://wa.me/'+TEACHER_WA+'?text='+encodeURIComponent(teacherMsg),'_blank'), notifyStudent?600:0);
+    html+='<div class="notif-section"><div class="notif-section-title">'+(notifyStudent?'Also Notify Teacher':'Your Notifications')+'</div>';
+    html+='<a href="'+waLink(TEACHER_WA,teacherMsg)+'" target="_blank" class="notif-link" style="background:#0a2e1a;border:1px solid #16a34a;color:#4ade80;"><span style="font-size:20px;">WA</span><div><div class="notif-link-title">WhatsApp Teacher</div><div class="notif-link-sub">+'+TEACHER_WA+'</div></div></a>';
+    html+='<a href="'+emailLink(TEACHER_EMAIL,'[MEB] '+titles[event]+' - '+bk.name,teacherMsg)+'" class="notif-link" style="background:#0a1a2e;border:1px solid #3b82f6;color:#60a5fa;"><span style="font-size:20px;">@</span><div><div class="notif-link-title">Email Teacher</div><div class="notif-link-sub">'+TEACHER_EMAIL+'</div></div></a>';
+    html+='</div>';
   }
+
+  document.getElementById('notifTitle').textContent=titles[event]||'Notification';
+  document.getElementById('notifSub').textContent='Tap a button below to send notification';
+  document.getElementById('notifContent').innerHTML=html;
+  document.getElementById('notifSheet').style.display='flex';
 }
 
 function waLink(num,msg){ return 'https://wa.me/'+num+'?text='+encodeURIComponent(msg); }
