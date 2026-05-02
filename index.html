@@ -431,8 +431,25 @@ const ALL_SLOTS = [...ALL_SLOTS_NORMAL,...ALL_SLOTS_SUMMER.filter(s=>!ALL_SLOTS_
 // STORAGE
 // ============================================================
 const SK = 'meb_bookings_v1';
-function loadBookings(){ try{ const d=localStorage.getItem(SK); return d?JSON.parse(d):{}; }catch(e){ return {}; } }
-function saveBookings(data){ try{ localStorage.setItem(SK,JSON.stringify(data)); }catch(e){} }
+function saveBookings(data){
+  try{
+    const str=JSON.stringify(data);
+    localStorage.setItem(SK,str);
+    // Verify it was saved
+    const verify=localStorage.getItem(SK);
+    if(!verify) console.error('saveBookings: write failed silently');
+  }catch(e){
+    console.error('saveBookings error:',e);
+    // Try sessionStorage as fallback
+    try{ sessionStorage.setItem(SK,JSON.stringify(data)); }catch(e2){}
+  }
+}
+function loadBookings(){
+  try{
+    const d=localStorage.getItem(SK)||sessionStorage.getItem(SK);
+    return d?JSON.parse(d):{};
+  }catch(e){ return {}; }
+}
 
 // Customer profile storage - remembers name, email, whatsapp
 const PROFILES_KEY = 'meb_profiles_v1';
@@ -1111,17 +1128,20 @@ function submitBooking(){
   const savedBk=firstKey?bookings[firstKey]:null;
   document.getElementById('formSheet').style.display='none';
   anchorSlot=null; rangeEndSlot=null;
-
-  if(savedBk){
-    if(firstStatus==='confirmed'){
-      autoNotify('confirmed',savedBk,true,true);
-      showToast('Booking confirmed!');
-    } else {
-      autoNotify('booked',savedBk,true,true);
-      showToast('Booking requested - awaiting approval.');
-    }
-  }
   renderCalendar();
+
+  // Delay notification to ensure save completes and calendar renders first
+  if(savedBk){
+    setTimeout(()=>{
+      if(firstStatus==='confirmed'){
+        autoNotify('confirmed',savedBk,true,true);
+        showToast('Booking confirmed!');
+      } else {
+        autoNotify('booked',savedBk,true,true);
+        showToast('Booking requested - awaiting approval.');
+      }
+    }, 300);
+  }
 }
 
 // ============================================================
