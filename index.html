@@ -977,17 +977,26 @@ function submitBooking(){
   const fullLabel=pad(Math.floor(first.startMin/60))+':'+pad(first.startMin%60)+'-'+pad(Math.floor(last.endMin/60))+':'+pad(last.endMin%60);
   const repeatId=selectedRepeat!=='once'?'repeat_'+Date.now():null;
   const steps={once:[[0,0]],daily:Array.from({length:90},(_,i)=>[i,0]),weekly:Array.from({length:52},(_,i)=>[0,i*7]),monthly:Array.from({length:12},(_,i)=>[i*30,0])}[selectedRepeat]||[[0,0]];
+
+  // Check if ALL selected slots are free — if so, auto-approve
+  const ds=dateKey(modalDate);
+  const allFree=ids.every(sid=>{
+    const existing=bookings[slotKey(ds,sid)];
+    return !existing||existing.status==='rejected';
+  });
+  const autoStatus = allFree ? 'confirmed' : 'pending';
+
   let firstKey=null;
   for(const[mo,da]of steps){
     const d=new Date(modalDate);
     if(selectedRepeat==='monthly') d.setMonth(d.getMonth()+mo);
     else d.setDate(d.getDate()+da);
-    const ds=dateKey(d);
+    const ds2=dateKey(d);
     for(const sid of ids){
-      const k=slotKey(ds,sid);
+      const k=slotKey(ds2,sid);
       if(bookings[k]&&bookings[k].status!=='rejected') continue;
       const slot=ALL_SLOTS.find(s=>s.id===sid);
-      bookings[k]={name,email,whatsapp:wa,note,status:'pending',bookedAt:new Date().toISOString(),dateStr:ds,slotId:sid,slotLabel:slot.label,groupLabel:fullLabel,tier:slot?slot.tier:'',repeat:selectedRepeat,...(repeatId?{repeatId}:{})};
+      bookings[k]={name,email,whatsapp:wa,note,status:autoStatus,bookedAt:new Date().toISOString(),dateStr:ds2,slotId:sid,slotLabel:slot.label,groupLabel:fullLabel,tier:slot?slot.tier:'',repeat:selectedRepeat,...(repeatId?{repeatId}:{})};
       if(!firstKey) firstKey=k;
     }
   }
@@ -995,7 +1004,19 @@ function submitBooking(){
   const savedBk=firstKey?bookings[firstKey]:null;
   document.getElementById('formSheet').style.display='none';
   anchorSlot=null; rangeEndSlot=null;
-  if(savedBk) showNotif('booked',savedBk,false);
+
+  if(savedBk){
+    if(autoStatus==='confirmed'){
+      // Auto-approved — notify teacher via WhatsApp automatically
+      const date=new Date(savedBk.dateStr+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+      const msg='New booking AUTO-CONFIRMED!\n\nStudent: '+name+'\nEmail: '+email+(wa?'\nWhatsApp: '+wa:'')+'\nDate: '+date+'\nTime: '+fullLabel+'\nTier: '+(savedBk.tier||'')+'\n\nSlot was free - automatically approved.';
+      window.open('https://wa.me/971585067893?text='+encodeURIComponent(msg),'_blank');
+      showToast('Booking confirmed!');
+    } else {
+      // Some slots taken — needs manual approval
+      showNotif('booked',savedBk,false);
+    }
+  }
   renderCalendar();
 }
 
