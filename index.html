@@ -232,7 +232,8 @@ input,textarea{background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding
       </div>
       <div class="pin-error" id="teacherPwError"></div>
       <div style="display:flex;gap:10px;margin-top:14px;">
-        <button class="nav-btn" style="flex:1;padding:11px;" onclick="showScreen('screen-pin')">Back</button>
+        <button class="nav-btn" style="flex:1;padding:11px;" onclick="showScreen('screen-pin')">← PIN</button>
+        <button class="nav-btn" style="flex:1;padding:11px;" onclick="goCalendar(calendarMode||'student')">Calendar</button>
         <button onclick="teacherLogin()" style="flex:2;background:#818cf8;border:none;color:#fff;padding:11px;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;">Login</button>
       </div>
       <div style="text-align:center;margin-top:14px;">
@@ -945,12 +946,21 @@ function openFormSheet(isEdit){
   document.getElementById('formTitle').textContent=isEdit?'Modify Booking':'Your details';
   const sub=document.getElementById('formSub');
   if(modalDate){
+    const isWknd = modalDate.getDay()===0 || modalDate.getDay()===6;
     const selLbl=isEdit?'':getSelLabelFromIds(savedSelectedIds);
     const dur=isEdit?'':getDurationFromIds(savedSelectedIds);
-    sub.textContent=modalDate.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+(isEdit?' - Will return to Pending after edit':' - '+selLbl+' ('+dur+')');
-    sub.style.color=isEdit?'#f59e0b':'#555';
+    const wkndNote = isWknd&&!isEdit?' - Weekend: teacher approval required':'';
+    sub.textContent=modalDate.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+(isEdit?' - Will return to Pending after edit':' - '+selLbl+' ('+dur+')')+wkndNote;
+    sub.style.color=(isEdit||isWknd)?'#f59e0b':'#555';
   }
   document.getElementById('repeatSection').style.display=isEdit?'none':'block';
+
+  // Hide repeat options if booking is on a weekend (recurring not allowed on weekends)
+  const isWeekendBooking = modalDate && (modalDate.getDay()===0 || modalDate.getDay()===6);
+  if(isWeekendBooking){
+    document.getElementById('repeatSection').style.display='none';
+    selectedRepeat='once';
+  }
   renderRepeatGrid();
 
   // Pre-fill from last known profile if fields are empty and this is a new booking
