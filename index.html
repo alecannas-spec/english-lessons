@@ -392,7 +392,7 @@ const TEACHER_EMAIL = 'gilointernational@gmail.com';
 const BANDS_NORMAL = [
   {id:'morning',  sH:9, sM:0, eH:12,eM:0, hex:'#22c55e',bg:'#052e16',border:'#16a34a',label:'09:00-12:00',tier:'Best Price'},
   {id:'midday',   sH:12,sM:0, eH:14,eM:0, hex:'#ef4444',bg:'#450a0a',border:'#dc2626',label:'12:00-14:00',tier:'Premium'},
-  {id:'afternoon',sH:15,sM:0, eH:20,eM:0, hex:'#f59e0b',bg:'#451a03',border:'#d97706',label:'15:00-20:00',tier:'Standard'},
+  {id:'afternoon',sH:14,sM:0, eH:20,eM:0, hex:'#f59e0b',bg:'#451a03',border:'#d97706',label:'14:00-20:00',tier:'Standard'},
   {id:'evening',  sH:21,sM:0, eH:24,eM:0, hex:'#ef4444',bg:'#450a0a',border:'#dc2626',label:'21:00-24:00',tier:'Premium'},
 ];
 const BANDS_SUMMER = [
@@ -975,7 +975,7 @@ function openFormSheet(isEdit){
     sub.textContent=modalDate.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+(isEdit?' - Will return to Pending after edit':' - '+selLbl+' ('+dur+')')+wkndNote;
     sub.style.color=(isEdit||isWknd)?'#f59e0b':'#555';
   }
-  document.getElementById('repeatSection').style.display=isEdit?'none':'block';
+  document.getElementById('repeatSection').style.display='block';
 
   // Hide repeat options if booking is on a weekend (recurring not allowed on weekends)
   const isWeekendBooking = modalDate && (modalDate.getDay()===0 || modalDate.getDay()===6);
@@ -1326,12 +1326,12 @@ function renderAdmin(){
         </div>
         <div class="booking-actions">
           ${bk.status==='pending'?`
-            <button class="action-btn" style="background:#14532d;border-color:#16a34a;color:#4ade80;" onclick="adminAction('${gk}','accept')">OK${isRecurring?' All '+uniqueDays:''}</button>
-            <button class="action-btn" style="background:#450a0a;border-color:#dc2626;color:#f87171;" onclick="adminAction('${gk}','reject')">X${isRecurring?' All':''}</button>
+            <button class="action-btn" style="background:#14532d;border-color:#16a34a;color:#4ade80;" onclick="adminAction('${safeGk}','accept')">OK${isRecurring?' All '+uniqueDays:''}</button>
+            <button class="action-btn" style="background:#450a0a;border-color:#dc2626;color:#f87171;" onclick="adminAction('${safeGk}','reject')">X${isRecurring?' All':''}</button>
           `:''}
-          ${bk.status==='confirmed'?`<button class="action-btn" style="background:#450a0a;border-color:#dc2626;color:#f87171;" onclick="adminAction('${gk}','reject')">${isRecurring?'Cancel All':'Cancel'}</button>`:''}
-          <button class="action-btn" style="background:#1a1a2e;border-color:#3730a3;color:#818cf8;" onclick="toggleAdminEdit('${gk}')">Edit</button>
-          <button class="action-btn" style="background:#161616;border-color:#2a2a2a;color:#555;" onclick="adminAction('${gk}','delete')">Del</button>
+          ${bk.status==='confirmed'?`<button class="action-btn" style="background:#450a0a;border-color:#dc2626;color:#f87171;" onclick="adminAction('${safeGk}','reject')">${isRecurring?'Cancel All':'Cancel'}</button>`:''}
+          <button class="action-btn" style="background:#1a1a2e;border-color:#3730a3;color:#818cf8;" onclick="toggleAdminEdit('${safeGk}')">Edit</button>
+          <button class="action-btn" style="background:#161616;border-color:#2a2a2a;color:#555;" onclick="adminAction('${safeGk}','delete')">Del</button>
         </div>
       </div>
       <div id="edit-${safeGk}" class="edit-panel" style="display:none;">
@@ -1339,18 +1339,26 @@ function renderAdmin(){
         <div><span class="section-label">Name</span><input type="text" id="eName-${safeGk}" value="${safeName}" style="font-size:14px;"/></div>
         <div><span class="section-label">Email</span><input type="text" id="eEmail-${safeGk}" value="${safeEmail}" style="font-size:14px;"/></div>
         <div><span class="section-label">Note</span><textarea id="eNote-${safeGk}" rows="2" style="font-size:14px;resize:none;">${safeNote}</textarea></div>
-        ${!isRecurring?'<div><span class="section-label">Date</span><input type="date" id="eDate-'+safeGk+'" value="'+(bk.dateStr||'')+'" style="font-size:14px;color-scheme:dark;"/></div><div><span class="section-label">Time</span><select id="eTime-'+safeGk+'" style="background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 14px;border-radius:9px;font-size:14px;width:100%;outline:none;">'+ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===bk.slotId?' selected':'')+'>'+s.label+' ('+s.tier+')</option>').join('')+'</select></div>':''}
+        <div><span class="section-label">Date</span><input type="date" id="eDate-${safeGk}" value="${bk.dateStr||''}" style="font-size:14px;color-scheme:dark;"/></div>
+        <div><span class="section-label">Time</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="eTimeStart-${safeGk}" style="flex:1;background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 10px;border-radius:9px;font-size:14px;outline:none;">${ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===bk.slotId?' selected':'')+'>'+s.short+'</option>').join('')}</select>
+            <span style="color:#555;font-size:12px;">to</span>
+            <select id="eTimeEnd-${safeGk}" style="flex:1;background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 10px;border-radius:9px;font-size:14px;outline:none;">${(()=>{const gl=bk.groupLabel||'';const endMatch=gl.match(/-(\d{2}):(\d{2})$/);const endMin=endMatch?parseInt(endMatch[1])*60+parseInt(endMatch[2]):null;const lastSlotId=endMin?ALL_SLOTS.slice().reverse().find(s=>s.endMin<=endMin)?.id||bk.slotId:bk.slotId;return ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===lastSlotId?' selected':'')+'>'+s.short+'</option>').join('');})()}</select>
+          </div>
+        </div>
+        <div><span class="section-label">Repeat</span><select id="eRepeat-${safeGk}" style="background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 14px;border-radius:9px;font-size:14px;width:100%;outline:none;"><option value="once"${(bk.repeat||'once')==='once'?' selected':''}>Once</option><option value="daily"${bk.repeat==='daily'?' selected':''}>Daily</option><option value="weekly"${bk.repeat==='weekly'?' selected':''}>Weekly</option><option value="monthly"${bk.repeat==='monthly'?' selected':''}>Monthly</option></select></div>
         <div>
           <span class="section-label">Status</span>
           <div class="status-btns">
-            <button class="status-btn ${bk.status==='pending'?'active-pending':''}" id="eStat-pending-${safeGk}" onclick="setEditStatus('${gk}','pending')">Pending</button>
-            <button class="status-btn ${bk.status==='confirmed'?'active-confirmed':''}" id="eStat-confirmed-${safeGk}" onclick="setEditStatus('${gk}','confirmed')">Confirmed</button>
-            <button class="status-btn ${bk.status==='rejected'?'active-rejected':''}" id="eStat-rejected-${safeGk}" onclick="setEditStatus('${gk}','rejected')">Rejected</button>
+            <button class="status-btn ${bk.status==='pending'?'active-pending':''}" id="eStat-pending-${safeGk}" onclick="setEditStatus('${safeGk}','pending')">Pending</button>
+            <button class="status-btn ${bk.status==='confirmed'?'active-confirmed':''}" id="eStat-confirmed-${safeGk}" onclick="setEditStatus('${safeGk}','confirmed')">Confirmed</button>
+            <button class="status-btn ${bk.status==='rejected'?'active-rejected':''}" id="eStat-rejected-${safeGk}" onclick="setEditStatus('${safeGk}','rejected')">Rejected</button>
           </div>
         </div>
         <div class="edit-footer">
-          <button class="btn-secondary" onclick="toggleAdminEdit('${gk}')">Cancel</button>
-          <button onclick="saveAdminEdit('${gk}')" style="flex:2;background:#818cf8;border:none;color:#fff;padding:10px;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;">Save Changes</button>
+          <button class="btn-secondary" onclick="toggleAdminEdit('${safeGk}')">Cancel</button>
+          <button onclick="saveAdminEdit('${safeGk}')" style="flex:2;background:#818cf8;border:none;color:#fff;padding:10px;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;">Save Changes</button>
         </div>
       </div>
     `;
@@ -1360,27 +1368,31 @@ function renderAdmin(){
 
   // Store groups for edit/action access
   window._adminGroups=groups;
+  window._adminGroupsBySafe={};
+  for(const k of Object.keys(groups)){
+    window._adminGroupsBySafe[k.replace(/[^a-z0-9]/gi,'_')]=k;
+  }
 }
 
 let _editStatuses={};
-function setEditStatus(gk,status){
+function setEditStatus(safeGk,status){
+  const gk=(window._adminGroupsBySafe||{})[safeGk]||safeGk;
   _editStatuses[gk]=status;
-  const safeGk=gk.replace(/[^a-z0-9]/gi,'_');
   for(const s of['pending','confirmed','rejected']){
     const btn=document.getElementById('eStat-'+s+'-'+safeGk);
     if(btn) btn.className='status-btn'+(status===s?' active-'+s:'');
   }
 }
 
-function toggleAdminEdit(gk){
-  const safeGk=gk.replace(/[^a-z0-9]/gi,'_');
+function toggleAdminEdit(safeGk){
   const panel=document.getElementById('edit-'+safeGk);
   if(panel) panel.style.display=panel.style.display==='none'?'flex':'none';
 }
 
-function adminAction(gk,action){
+function adminAction(safeGk,action){
+  const gk=(window._adminGroupsBySafe||{})[safeGk];
   const groups=window._adminGroups||{};
-  const g=groups[gk];
+  const g=gk?groups[gk]:null;
   if(!g) return;
   for(const k of g.keys){
     if(action==='accept') bookings[k]={...bookings[k],status:'confirmed'};
@@ -1397,40 +1409,69 @@ function adminAction(gk,action){
   renderAdmin();
 }
 
-function saveAdminEdit(gk){
-  const safeGk=gk.replace(/[^a-z0-9]/gi,'_');
+function saveAdminEdit(safeGk){
+  const gk=(window._adminGroupsBySafe||{})[safeGk];
   const groups=window._adminGroups||{};
-  const g=groups[gk];
+  const g=gk?groups[gk]:null;
   if(!g) return;
   const name=document.getElementById('eName-'+safeGk)?.value||g.bk.name;
   const email=document.getElementById('eEmail-'+safeGk)?.value||g.bk.email;
   const note=document.getElementById('eNote-'+safeGk)?.value||'';
   const dateStr=document.getElementById('eDate-'+safeGk)?.value||g.bk.dateStr;
-  const newSlotId=document.getElementById('eTime-'+safeGk)?.value||g.bk.slotId;
-  const newSlot=ALL_SLOTS.find(s=>s.id===newSlotId);
+  const newStartId=document.getElementById('eTimeStart-'+safeGk)?.value||g.bk.slotId;
+  const newEndId=document.getElementById('eTimeEnd-'+safeGk)?.value||g.bk.slotId;
+  const newRepeat=document.getElementById('eRepeat-'+safeGk)?.value||g.bk.repeat||'once';
   const status=_editStatuses[gk]||g.bk.status;
-  for(const k of g.keys){
-    const updatedEntry={...bookings[k],name,email,note,status,
-      slotId:newSlotId,
-      slotLabel:newSlot?newSlot.label:g.bk.slotLabel,
-      groupLabel:newSlot?newSlot.label:g.bk.groupLabel,
-      tier:newSlot?newSlot.tier:g.bk.tier,
-      editedByTeacher:new Date().toISOString()};
-    // Handle date change - move to new storage key
-    if(dateStr!==g.bk.dateStr&&!g.bk.repeatId){
-      const nk=slotKey(dateStr,newSlotId);
-      bookings[nk]={...updatedEntry,dateStr}; delete bookings[k];
-    } else if(newSlotId!==g.bk.slotId&&!g.bk.repeatId){
-      // Time changed - move to new key (same date, new slot)
-      const nk=slotKey(dateStr,newSlotId);
-      bookings[nk]={...updatedEntry,dateStr}; delete bookings[k];
-    } else {
-      bookings[k]=updatedEntry;
+
+  const startIdx=ALL_SLOTS.findIndex(s=>s.id===newStartId);
+  const endIdx=ALL_SLOTS.findIndex(s=>s.id===newEndId);
+  const slotRange=ALL_SLOTS.slice(Math.min(startIdx,endIdx), Math.max(startIdx,endIdx)+1);
+  const newSlotIds=slotRange.map(s=>s.id);
+  const firstSlot=slotRange[0];
+  const lastSlot=slotRange[slotRange.length-1];
+  const newGroupLabel=firstSlot&&lastSlot?pad(Math.floor(firstSlot.startMin/60))+':'+pad(firstSlot.startMin%60)+'-'+pad(Math.floor(lastSlot.endMin/60))+':'+pad(lastSlot.endMin%60):'';
+
+  const isRecurring=!!g.bk.repeatId;
+  const dateChanged=dateStr!==g.bk.dateStr;
+  const timeChanged=newStartId!==g.bk.slotId||newEndId!==g.bk.slotId;
+  const repeatChanged=newRepeat!==(g.bk.repeat||'once');
+
+  let applyToAll=false;
+  if(isRecurring&&(dateChanged||timeChanged||repeatChanged)){
+    applyToAll=confirm('Would you like this change to be applied to this event only, or to the entire series?\n\nOK = Apply to the entire series\nCancel = Apply to this event only');
+  } else if(!isRecurring&&(dateChanged||timeChanged||repeatChanged)){
+    if(!confirm('Apply changes to this booking?\n\nOK = Yes, update\nCancel = No, keep as is')) return;
+  }
+
+  const datesToUpdate=applyToAll?[...new Set(g.keys.map(k=>bookings[k]?.dateStr||g.bk.dateStr))]:[dateStr||g.bk.dateStr];
+  const oldKeys=applyToAll?g.keys:[g.keys[0]];
+  for(const k of oldKeys) delete bookings[k];
+
+  for(const ds of datesToUpdate){
+    for(const sid of newSlotIds){
+      const slot=ALL_SLOTS.find(s=>s.id===sid);
+      const nk=slotKey(ds,sid);
+      bookings[nk]={...g.bk,name,email,note,status,
+        slotId:sid,
+        slotLabel:slot?slot.label:sid,
+        groupLabel:newGroupLabel||sid,
+        tier:slot?slot.tier:g.bk.tier,
+        repeat:newRepeat,
+        repeatLabel:{once:'Once',daily:'Daily',weekly:'Weekly',monthly:'Monthly'}[newRepeat]||'Once',
+        dateStr:ds,
+        editedByTeacher:new Date().toISOString()};
     }
   }
   saveBookings(bookings);
-  const updBk=bookings[g.keys[0]]||{...g.bk,name,email,note,status};
+  delete _editStatuses[gk];
+  // After delete+rewrite, g.keys[0] is stale - find a fresh new key instead
+  const freshKey=Object.keys(bookings).find(k=>{
+    const b=bookings[k];
+    return b&&b.name===name&&b.email===email&&b.editedByTeacher;
+  });
+  const updBk=freshKey?bookings[freshKey]:{...g.bk,name,email,note,status,dateStr};
   autoNotify('modified',updBk,true,true);
+  showToast('Saved.');
   renderAdmin();
 }
 
@@ -1468,7 +1509,12 @@ function renderCustResults(){
   }
   const groups=groupCustResults();
   window._custGroups=groups;
+  window._custGroupsBySafe={};
+  for(const k of Object.keys(groups)){
+    window._custGroupsBySafe[k.replace(/[^a-z0-9]/gi,'_')]=k;
+  }
   for(const[gk,{keys,bk,allDates}]of Object.entries(groups)){
+    const safeGk=gk.replace(/[^a-z0-9]/gi,'_');
     const isRecurring=!!bk.repeatId;
     const slot=ALL_SLOTS.find(s=>s.id===bk.slotId);
     const d=new Date(bk.dateStr+'T12:00:00');
@@ -1492,18 +1538,36 @@ function renderCustResults(){
           <div style="font-size:12px;color:${slotColor};margin-bottom:2px;">${dateStr} - <strong>${bk.groupLabel||bk.slotLabel||''}</strong></div>
           ${bk.note&&!isEditing?'<div style="font-size:11px;color:#555;font-style:italic;">"'+bk.note+'"</div>':''}
         </div>
-        <button onclick="toggleCustEdit('${gk}')" style="background:${isEditing?'#3730a3':'#1a1a2e'};border:1px solid #3730a3;color:#818cf8;padding:8px 12px;border-radius:7px;cursor:pointer;font-size:12px;">${isEditing?'X':'Edit'}</button>
-        <button onclick="custDelete('${gk}')" style="background:#161616;border:1px solid #2a2a2a;color:#555;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:12px;">Del</button>
+        <button onclick="toggleCustEdit('${safeGk}')" style="background:${isEditing?'#3730a3':'#1a1a2e'};border:1px solid #3730a3;color:#818cf8;padding:8px 12px;border-radius:7px;cursor:pointer;font-size:12px;">${isEditing?'X':'Edit'}</button>
+        <button onclick="custDelete('${safeGk}')" style="background:#161616;border:1px solid #2a2a2a;color:#555;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:12px;">Del</button>
       </div>
       ${isEditing?`
       <div class="cust-edit-panel">
         <div style="font-size:11px;color:#818cf8;margin-bottom:12px;font-weight:700;">Changes return to Pending for re-approval.</div>
         <div style="margin-bottom:10px;"><span class="section-label">Date</span><input type="date" id="cDate-${gk.replace(/[^a-z0-9]/gi,'_')}" value="${bk.dateStr||''}" min="${dateKey(new Date())}" style="font-size:14px;color-scheme:dark;"/></div>
-        <div style="margin-bottom:10px;"><span class="section-label">Time</span><select id="cTime-${gk.replace(/[^a-z0-9]/gi,'_')}" style="background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 14px;border-radius:9px;font-size:14px;width:100%;outline:none;">${ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===bk.slotId?' selected':'')+'>'+s.label+' ('+s.tier+')</option>').join('')}</select></div>
+        <div style="margin-bottom:10px;"><span class="section-label">Time</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="cTimeStart-${gk.replace(/[^a-z0-9]/gi,'_')}" style="flex:1;background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 10px;border-radius:9px;font-size:14px;outline:none;">
+              ${ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===g.bk.slotId?' selected':'')+'>'+s.short+'</option>').join('')}
+            </select>
+            <span style="color:#555;font-size:12px;">to</span>
+            <select id="cTimeEnd-${gk.replace(/[^a-z0-9]/gi,'_')}" style="flex:1;background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 10px;border-radius:9px;font-size:14px;outline:none;">
+              ${(()=>{
+                // Find last slot from groupLabel e.g. "12:00-14:00" -> end is 13:30
+                const gl=g.bk.groupLabel||'';
+                const endMatch=gl.match(/-(\d{2}):(\d{2})$/);
+                const endMin=endMatch?parseInt(endMatch[1])*60+parseInt(endMatch[2]):null;
+                const lastSlotId=endMin?ALL_SLOTS.slice().reverse().find(s=>s.endMin<=endMin)?.id||g.bk.slotId:g.bk.slotId;
+                return ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===lastSlotId?' selected':'')+'>'+s.short+'</option>').join('');
+              })()}
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:10px;"><span class="section-label">Repeat</span><select id="cRepeat-${gk.replace(/[^a-z0-9]/gi,'_')}" style="background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 14px;border-radius:9px;font-size:14px;width:100%;outline:none;"><option value="once"${(bk.repeat||'once')==='once'?' selected':''}>Once</option><option value="daily"${bk.repeat==='daily'?' selected':''}>Daily</option><option value="weekly"${bk.repeat==='weekly'?' selected':''}>Weekly</option><option value="monthly"${bk.repeat==='monthly'?' selected':''}>Monthly</option></select></div>
         <div style="margin-bottom:10px;"><span class="section-label">Message</span><textarea id="cNote-${gk.replace(/[^a-z0-9]/gi,'_')}" rows="3" placeholder="Update your message..." style="font-size:14px;resize:none;">${bk.note||''}</textarea></div>
         <div style="display:flex;gap:8px;">
-          <button onclick="toggleCustEdit('${gk}')" class="btn-secondary" style="flex:1;">Cancel</button>
-          <button onclick="saveCustEdit('${gk}')" style="flex:2;background:#818cf8;border:none;color:#fff;padding:10px;border-radius:8px;cursor:pointer;font-weight:700;">Save &amp; Re-submit</button>
+          <button onclick="toggleCustEdit('${safeGk}')" class="btn-secondary" style="flex:1;">Cancel</button>
+          <button onclick="saveCustEdit('${safeGk}')" style="flex:2;background:#818cf8;border:none;color:#fff;padding:10px;border-radius:8px;cursor:pointer;font-weight:700;">Save &amp; Re-submit</button>
         </div>
       </div>
       `:''}
@@ -1512,15 +1576,17 @@ function renderCustResults(){
   }
 }
 
-function toggleCustEdit(gk){
+function toggleCustEdit(safeGk){
+  const gk=(window._custGroupsBySafe||{})[safeGk]||safeGk;
   custEditGk=custEditGk===gk?null:gk;
   renderCustResults();
 }
 
-function custDelete(gk){
+function custDelete(safeGk){
   if(!confirm('Delete this booking?')) return;
+  const gk=(window._custGroupsBySafe||{})[safeGk];
   const groups=window._custGroups||{};
-  const g=groups[gk];
+  const g=gk?groups[gk]:null;
   if(!g) return;
   for(const k of g.keys) delete bookings[k];
   saveBookings(bookings);
@@ -1531,47 +1597,62 @@ function custDelete(gk){
   showToast('Booking deleted.');
 }
 
-function saveCustEdit(gk){
-  const safeGk=gk.replace(/[^a-z0-9]/gi,'_');
+function saveCustEdit(safeGk){
+  const gk=(window._custGroupsBySafe||{})[safeGk];
   const groups=window._custGroups||{};
-  const g=groups[gk];
+  const g=gk?groups[gk]:null;
   if(!g) return;
   const newDateStr=document.getElementById('cDate-'+safeGk)?.value||g.bk.dateStr;
-  const newSlotId=document.getElementById('cTime-'+safeGk)?.value||g.bk.slotId;
-  const newSlot=ALL_SLOTS.find(s=>s.id===newSlotId);
+  const newStartId=document.getElementById('cTimeStart-'+safeGk)?.value||g.bk.slotId;
+  const newEndId=document.getElementById('cTimeEnd-'+safeGk)?.value||g.bk.slotId;
+  const newRepeat=document.getElementById('cRepeat-'+safeGk)?.value||g.bk.repeat||'once';
   const note=document.getElementById('cNote-'+safeGk)?.value||'';
+
+  // Build new slot range from start to end
+  const startIdx=ALL_SLOTS.findIndex(s=>s.id===newStartId);
+  const endIdx=ALL_SLOTS.findIndex(s=>s.id===newEndId);
+  const slotRange=ALL_SLOTS.slice(Math.min(startIdx,endIdx), Math.max(startIdx,endIdx)+1);
+  const newSlotIds=slotRange.map(s=>s.id);
+  const firstSlot=slotRange[0];
+  const lastSlot=slotRange[slotRange.length-1];
+  const newGroupLabel=firstSlot&&lastSlot?pad(Math.floor(firstSlot.startMin/60))+':'+pad(firstSlot.startMin%60)+'-'+pad(Math.floor(lastSlot.endMin/60))+':'+pad(lastSlot.endMin%60):'';
+
   const dateChanged=newDateStr&&newDateStr!==g.bk.dateStr;
-  const timeChanged=newSlotId&&newSlotId!==g.bk.slotId;
+  const timeChanged=newStartId!==g.bk.slotId||newEndId!==g.bk.slotId;
+  const repeatChanged=newRepeat!==(g.bk.repeat||'once');
   const isRecurring=!!g.bk.repeatId;
 
-  // If recurring and date/time changed, ask scope
   let applyToAll=false;
-  if(isRecurring&&(dateChanged||timeChanged)){
-    applyToAll=confirm('This is a recurring booking.\n\nOK = Change ALL sessions in the series\nCancel = Change only this session');
+  if(dateChanged||timeChanged||repeatChanged){
+    if(isRecurring){
+      applyToAll=confirm('Would you like this change to be applied to this event only, or to the entire series?\n\nOK = Apply to the entire series\nCancel = Apply to this event only');
+    } else {
+      // Single booking - just confirm the change
+      if(!confirm('Apply changes to this booking?\n\nOK = Yes, update\nCancel = No, keep as is')) return;
+    }
   }
 
-  const keysToUpdate=applyToAll?g.keys:[g.keys[0]];
+  const datesToUpdate=applyToAll?[...new Set(g.keys.map(k=>bookings[k]?.dateStr||g.bk.dateStr))]:[newDateStr||g.bk.dateStr];
 
-  for(const k of keysToUpdate){
-    const origBk=bookings[k];
-    if(!origBk) continue;
-    const useDateStr=applyToAll?origBk.dateStr:newDateStr; // for all: keep each date, just update time/note
-    const updBk={...origBk,note,
-      slotId:newSlotId,
-      slotLabel:newSlot?newSlot.label:origBk.slotLabel,
-      groupLabel:newSlot?newSlot.label:origBk.groupLabel,
-      tier:newSlot?newSlot.tier:origBk.tier,
-      status:'pending',editedAt:new Date().toISOString()};
-    if((dateChanged||timeChanged)&&!applyToAll){
-      // Single session: move to new key
-      const nk=slotKey(newDateStr,newSlotId);
-      bookings[nk]=updBk; delete bookings[k];
-    } else if(timeChanged&&applyToAll){
-      // All sessions: update time but keep each session's date
-      const nk=slotKey(origBk.dateStr,newSlotId);
-      bookings[nk]=updBk; delete bookings[k];
-    } else {
-      bookings[k]=updBk;
+  // Delete old keys
+  const oldKeys=applyToAll?g.keys:[g.keys[0]];
+  for(const k of oldKeys) delete bookings[k];
+
+  // Write new slot range for each date
+  for(const ds of datesToUpdate){
+    for(const sid of newSlotIds){
+      const slot=ALL_SLOTS.find(s=>s.id===sid);
+      const nk=slotKey(ds,sid);
+      bookings[nk]={...g.bk,note,
+        slotId:sid,
+        slotLabel:slot?slot.label:sid,
+        groupLabel:newGroupLabel||sid,
+        tier:slot?slot.tier:g.bk.tier,
+        repeat:newRepeat,
+        repeatLabel:{once:'Once',daily:'Daily',weekly:'Weekly',monthly:'Monthly'}[newRepeat]||'Once',
+        dateStr:ds,
+        status:'pending',
+        editedAt:new Date().toISOString()};
     }
   }
 
@@ -1581,10 +1662,17 @@ function saveCustEdit(gk){
   const email=document.getElementById('custEmail').value.trim().toLowerCase();
   custSearchResults=Object.entries(bookings).filter(([,bk])=>bk.name&&bk.email&&bk.name.toLowerCase()===name&&bk.email.toLowerCase()===email);
   renderCustResults();
-  const notifBk=bookings[g.keys[0]]||{...g.bk,note,dateStr:newDateStr};
-  autoNotify('modified',notifBk,true,false);
   showToast('Booking updated - awaiting re-approval.');
+  // Find fresh booking (after rewrite) for accurate notification
+  const freshKey=Object.keys(bookings).find(k=>{
+    const b=bookings[k];
+    return b&&b.name===g.bk.name&&b.email===g.bk.email&&b.editedAt;
+  });
+  const updBk=freshKey?bookings[freshKey]:g.bk;
+  setTimeout(()=>autoNotify('modified',updBk,true,false),300);
 }
+
+
 
 // ============================================================
 // INIT
