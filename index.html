@@ -396,9 +396,9 @@ input,textarea{background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding
 // ============================================================
 // CONFIG
 // ============================================================
-const CALENDAR_PIN = '1234';
-const TEACHER_CALENDAR_PIN = '5678';
-const ADMIN_PASSWORD = 'teacher2024';
+const CALENDAR_PIN = '63574';
+const TEACHER_CALENDAR_PIN = '25855';
+const ADMIN_PASSWORD = 'welcomeES74';
 const TEACHER_WA = '971585067893';
 const TEACHER_EMAIL = 'gilointernational@gmail.com';
 
@@ -615,15 +615,16 @@ function showScreen(id){
 // PIN
 // ============================================================
 let pinVal = '';
+const PIN_LEN = 5;
 function pinPress(d){
-  if(pinVal.length>=8) return;
+  if(pinVal.length>=PIN_LEN) return;
   pinVal+=d;
   updatePinDots();
   document.getElementById('pinError').textContent='';
-  if(pinVal.length>=4){
+  if(pinVal.length>=PIN_LEN){
     setTimeout(()=>{
-      if(pinVal===CALENDAR_PIN){ goCalendar('student'); }
-      else if(pinVal===TEACHER_CALENDAR_PIN){ goCalendar('teacher'); }
+      if(pinVal===CALENDAR_PIN){ goCalendar('student'); pinVal=''; updatePinDots(); }
+      else if(pinVal===TEACHER_CALENDAR_PIN){ goCalendar('teacher'); pinVal=''; updatePinDots(); }
       else{
         document.getElementById('pinCard').classList.add('shake');
         document.getElementById('pinError').textContent='Wrong PIN';
@@ -638,7 +639,7 @@ function pinDel(){ pinVal=pinVal.slice(0,-1); updatePinDots(); }
 function updatePinDots(){
   const c=document.getElementById('pinDots');
   c.innerHTML='';
-  for(let i=0;i<4;i++){
+  for(let i=0;i<PIN_LEN;i++){
     const d=document.createElement('div');
     d.className='pin-dot'+(i<pinVal.length?' filled':'');
     c.appendChild(d);
