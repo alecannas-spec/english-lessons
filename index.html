@@ -1238,20 +1238,35 @@ function autoNotify(event, bk, notifyTeacher=true, notifyStudent=true){
     modified:'MODIFIED: '+bk.name+'\nDate: '+date+'\nTime: '+slot+repeatStr+'\nNeeds re-approval',
   }[event]||'';
 
+  // Normalise customer WhatsApp to digits only (e.g. "+39 333 1234567" -> "393331234567")
   const custWa=bk.whatsapp?bk.whatsapp.replace(/\D/g,''):null;
+  const teacherSubject='[MEB] '+titles[event]+' - '+(bk.name||'');
+  const studentSubject='Your English Lesson - '+titles[event];
 
-  // Open notifications after 500ms delay to ensure localStorage write completes first
-  setTimeout(()=>{
-    if(notifyStudent){
-      if(custWa) window.open('https://wa.me/'+custWa+'?text='+encodeURIComponent(studentMsg),'_blank');
-      else if(bk.email) window.open('mailto:'+bk.email+'?subject='+encodeURIComponent('Your English Lesson - '+titles[event])+'&body='+encodeURIComponent(studentMsg),'_blank');
+  // Stage the notifications and open them one at a time so popup blockers don't drop them
+  const popups=[];
+  if(notifyStudent){
+    // Teacher -> Student: prefer WhatsApp if student gave a phone number, else email
+    if(custWa){
+      popups.push('https://wa.me/'+custWa+'?text='+encodeURIComponent(studentMsg));
+    } else if(bk.email){
+      popups.push('mailto:'+bk.email+'?subject='+encodeURIComponent(studentSubject)+'&body='+encodeURIComponent(studentMsg));
     }
-    if(notifyTeacher){
-      setTimeout(()=>{
-        window.open('https://wa.me/'+TEACHER_WA+'?text='+encodeURIComponent(teacherMsg),'_blank');
-      }, notifyStudent?700:0);
-    }
-  }, 500);
+  }
+  if(notifyTeacher){
+    // Student -> Teacher: prefer WhatsApp (we always have teacher's WA), but if the
+    // student-side action was an EMAIL booking with no phone, ALSO offer email so the
+    // teacher gets a record at gilointernational@gmail.com.
+    // Practical rule: always send WhatsApp to teacher (it's the priority channel per your rule),
+    // because we always have the teacher's number.
+    popups.push('https://wa.me/'+TEACHER_WA+'?text='+encodeURIComponent(teacherMsg));
+  }
+
+  // Open them sequentially with small gaps so popup blockers don't kill them
+  let delay=400;
+  popups.forEach((url,i)=>{
+    setTimeout(()=>{ try{ window.open(url,'_blank'); }catch(e){ console.warn('popup blocked',e); } }, delay + i*700);
+  });
 }
 
 function waLink(num,msg){ return 'https://wa.me/'+num+'?text='+encodeURIComponent(msg); }
@@ -1409,7 +1424,7 @@ function renderAdmin(){
           <div style="display:flex;gap:8px;align-items:center;">
             <select id="eTimeStart-${safeGk}" style="flex:1;background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 10px;border-radius:9px;font-size:14px;outline:none;">${ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===bk.slotId?' selected':'')+'>'+s.short+'</option>').join('')}</select>
             <span style="color:#555;font-size:12px;">to</span>
-            <select id="eTimeEnd-${safeGk}" style="flex:1;background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 10px;border-radius:9px;font-size:14px;outline:none;">${(()=>{const gl=bk.groupLabel||'';const endMatch=gl.match(/-(\d{2}):(\d{2})$/);const endMin=endMatch?parseInt(endMatch[1])*60+parseInt(endMatch[2]):null;const lastSlotId=endMin?ALL_SLOTS.slice().reverse().find(s=>s.endMin<=endMin)?.id||bk.slotId:bk.slotId;return ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===lastSlotId?' selected':'')+'>'+s.short+'</option>').join('');})()}</select>
+            <select id="eTimeEnd-${safeGk}" style="flex:1;background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 10px;border-radius:9px;font-size:14px;outline:none;">${(()=>{const gl=bk.groupLabel||'';const endMatch=gl.match(/-(\d{2}):(\d{2})$/);const endMin=endMatch?parseInt(endMatch[1])*60+parseInt(endMatch[2]):null;const lastSlotId=endMin?ALL_SLOTS.slice().reverse().find(s=>s.endMin<=endMin)?.id||bk.slotId:bk.slotId;return ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===lastSlotId?' selected':'')+'>'+pad(Math.floor(s.endMin/60))+':'+pad(s.endMin%60)+'</option>').join('');})()}</select>
           </div>
         </div>
         <div><span class="section-label">Repeat</span><select id="eRepeat-${safeGk}" style="background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding:13px 14px;border-radius:9px;font-size:14px;width:100%;outline:none;"><option value="once"${(bk.repeat||'once')==='once'?' selected':''}>Once</option><option value="daily"${bk.repeat==='daily'?' selected':''}>Daily</option><option value="weekly"${bk.repeat==='weekly'?' selected':''}>Weekly</option><option value="monthly"${bk.repeat==='monthly'?' selected':''}>Monthly</option></select></div>
@@ -1628,7 +1643,7 @@ function renderCustResults(){
                 const endMatch=gl.match(/-(\d{2}):(\d{2})$/);
                 const endMin=endMatch?parseInt(endMatch[1])*60+parseInt(endMatch[2]):null;
                 const lastSlotId=endMin?ALL_SLOTS.slice().reverse().find(s=>s.endMin<=endMin)?.id||bk.slotId:bk.slotId;
-                return ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===lastSlotId?' selected':'')+'>'+s.short+'</option>').join('');
+                return ALL_SLOTS.map(s=>'<option value="'+s.id+'"'+(s.id===lastSlotId?' selected':'')+'>'+pad(Math.floor(s.endMin/60))+':'+pad(s.endMin%60)+'</option>').join('');
               })()}
             </select>
           </div>
