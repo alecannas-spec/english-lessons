@@ -533,6 +533,16 @@ function getProfile(name){
   const profiles=loadProfiles();
   return profiles[name.toLowerCase().trim()]||null;
 }
+// Returns true if this booking was made from this device (its name+email match a profile saved here)
+function isMyBooking(bk){
+  if(!bk||!bk.name) return false;
+  const profiles=loadProfiles();
+  const p=profiles[bk.name.toLowerCase().trim()];
+  if(!p) return false;
+  // Match on email too (case-insensitive) so two students sharing a device don't see each other's names
+  if(bk.email&&p.email) return bk.email.toLowerCase().trim()===p.email.toLowerCase().trim();
+  return true;
+}
 function autofillFromName(){
   const name=document.getElementById('fName').value;
   const profile=getProfile(name);
@@ -835,7 +845,10 @@ function renderCalendar(){
           cell.innerHTML='<div style="width:6px;height:6px;border-radius:50%;background:'+dateBand.hex+';box-shadow:0 0 4px '+dateBand.hex+';"></div><span style="font-size:10px;color:'+dateBand.hex+';font-weight:600;">'+freeStr+'</span>'+(booked>0?'<span style="font-size:8px;color:'+dateBand.hex+'88;">'+(booked/2>=1?(booked/2)+'h':'30m')+' taken</span>':'');
           cell.onclick=()=>openBandPicker(d,dateBand);
         } else if(isBooked){
-          cell.innerHTML='<div style="width:6px;height:6px;border-radius:50%;background:'+dateBand.hex+';opacity:'+(domStatus==='pending'?'0.5':'1')+'"></div><span style="font-size:9px;color:'+dateBand.hex+';font-weight:700;">'+(domStatus==='confirmed'?'Booked':'Pending')+'</span>';
+          // Find the booking object for THIS cell (any slot in this band that's booked counts)
+          const myBk=bookedEntries.find(b=>isMyBooking(b));
+          const labelText=myBk?myBk.name.split(' ')[0]:(domStatus==='confirmed'?'Booked':'Pending');
+          cell.innerHTML='<div style="width:6px;height:6px;border-radius:50%;background:'+dateBand.hex+';opacity:'+(domStatus==='pending'?'0.5':'1')+'"></div><span style="font-size:9px;color:'+dateBand.hex+';font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+labelText+'</span>'+(myBk&&domStatus==='pending'?'<span style="font-size:7px;color:'+dateBand.hex+'aa;">Pending</span>':'');
           const first=slots.map(s=>({key:slotKey(ds,s.id),bk:bookings[slotKey(ds,s.id)]})).find(x=>x.bk&&x.bk.status!=='rejected');
           if(first) cell.onclick=()=>openModify(d,dateBand,first.key,first.bk);
         } else {
