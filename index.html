@@ -605,7 +605,7 @@ function pinPress(d){
   pinVal+=d;
   updatePinDots();
   document.getElementById('pinError').textContent='';
-  if(pinVal.length>=4){
+  if(pinVal.length>=5){
     setTimeout(()=>{
       if(pinVal===CALENDAR_PIN){ goCalendar('student'); }
       else if(pinVal===TEACHER_CALENDAR_PIN){ goCalendar('teacher'); }
@@ -623,7 +623,7 @@ function pinDel(){ pinVal=pinVal.slice(0,-1); updatePinDots(); }
 function updatePinDots(){
   const c=document.getElementById('pinDots');
   c.innerHTML='';
-  for(let i=0;i<4;i++){
+  for(let i=0;i<5;i++){
     const d=document.createElement('div');
     d.className='pin-dot'+(i<pinVal.length?' filled':'');
     c.appendChild(d);
