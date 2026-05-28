@@ -312,6 +312,7 @@ input,textarea{background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding
         <button class="nav-btn" onclick="showScreen('screen-calendar')">&#8592; Calendar</button>
         <span style="font-size:18px;color:#fff;font-weight:700;">My Bookings</span>
       </div>
+      <button class="nav-btn" onclick="logoutTeacher()" style="background:#450a0a;border:1px solid #7f1d1d;color:#f87171;">Logout</button>
     </div>
     <div style="position:relative;z-index:2;">
       <div class="cust-search">
@@ -332,9 +333,14 @@ input,textarea{background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding
   <div class="sheet" id="slotSheetInner">
     <div style="padding:0 20px;">
       <div class="sheet-handle"></div>
-      <div class="sheet-title" id="slotSheetTitle"></div>
-      <div class="sheet-sub" id="slotSheetSub"></div>
-      <div class="sheet-hint" id="slotSheetHint"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="sheet-title" id="slotSheetTitle"></div>
+          <div class="sheet-sub" id="slotSheetSub"></div>
+          <div class="sheet-hint" id="slotSheetHint"></div>
+        </div>
+        <button onclick="closeSlotSheet();logoutTeacher()" style="background:#450a0a;border:1px solid #7f1d1d;color:#f87171;padding:6px 10px;border-radius:7px;font-size:12px;cursor:pointer;white-space:nowrap;margin-top:4px;">Logout</button>
+      </div>
     </div>
     <div class="slot-grid" id="slotGrid"></div>
     <div class="sheet-footer">
@@ -353,7 +359,10 @@ input,textarea{background:#0d0d0d;border:1px solid #2a2a2a;color:#e5e5e5;padding
   <div class="sheet" id="formSheetInner">
     <div class="form-body">
       <div class="sheet-handle"></div>
-      <div class="form-title" id="formTitle"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="form-title" id="formTitle"></div>
+        <button onclick="document.getElementById('formSheet').style.display='none';logoutTeacher()" style="background:#450a0a;border:1px solid #7f1d1d;color:#f87171;padding:6px 10px;border-radius:7px;font-size:12px;cursor:pointer;white-space:nowrap;">Logout</button>
+      </div>
       <div class="form-sub" id="formSub"></div>
       <div class="form-fields">
         <input type="text" id="fName" placeholder="Your name" autocomplete="name" enterkeyhint="next" oninput="validateForm()" onblur="autofillFromName()" onkeydown="if(event.key==='Enter'){autofillFromName();document.getElementById('fEmail').focus()}"/>
