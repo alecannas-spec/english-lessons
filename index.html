@@ -746,7 +746,7 @@ function renderCalendar(){
         const ds=dateKey(d);
         const bk=bookings[slotKey(ds,slot.id)];
         const past=isPast(new Date(ds+'T12:00:00'),slot.startMin);
-        const holidayBlocked=isSlotHolidayBlocked(ds,slot.startMin);
+        const holidayBlocked=!bk&&isSlotHolidayBlocked(ds,slot.startMin);
         const isBooked=bk&&bk.status!=='rejected';
         const cell=document.createElement('div');
         cell.className='slot-row-cell';
@@ -789,21 +789,13 @@ function renderCalendar(){
         const month=d.getMonth()+1;
         const dateBand=getBands(month).find(b=>b.id===band.id);
         if(!dateBand){ const e=document.createElement('div'); e.style.cssText='border-radius:8px;background:rgba(10,10,10,0.5);min-height:54px;'; grid.appendChild(e); continue; }
-        // Holiday block -- show as unavailable
-        if(isHolidayBlocked(ds, dateBand.id)){
-          const e=document.createElement('div');
-          e.style.cssText='border-radius:8px;border:1px solid #1a1a1a;background:rgba(10,10,10,0.5);padding:7px 3px;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;';
-          e.innerHTML='<span style="font-size:9px;color:#333;">n/a</span>';
-          grid.appendChild(e); continue;
-        }
         const slots=getSlots(month).filter(s=>s.bandId===dateBand.id);
         let free=0,booked=0;
         const bookedEntries=[];
         for(const s of slots){
-          if(isPast(new Date(ds+'T12:00:00'),s.startMin)) continue;
           const bk=bookings[slotKey(ds,s.id)];
           if(bk&&bk.status!=='rejected'){ booked++; bookedEntries.push(bk); }
-          else free++;
+          else if(!isPast(new Date(ds+'T12:00:00'),s.startMin)&&!isSlotHolidayBlocked(ds,s.startMin)) free++;
         }
         const allPast=free===0&&booked===0;
         const canClick=free>0;
@@ -811,12 +803,12 @@ function renderCalendar(){
         const hasPend=bookedEntries.some(b=>b.status==='pending');
         const domStatus=hasConf?'confirmed':hasPend?'pending':null;
         const isBooked=booked>0&&domStatus!==null;
-        const freeH=Math.floor(free/2),freeM=free%2?'30':'';
-        const freeStr=freeH>0?freeH+'h'+freeM:(freeM?freeM+'min':'');
 
         const cell=document.createElement('div');
         cell.className='band-cell'+(allPast?' past':isBooked?' booked':canClick?' available':'');
-        if((canClick||isBooked)&&!allPast){
+        if(isBooked){
+          cell.style.cssText='border-radius:8px;border:1px solid '+dateBand.border+'88;background:'+dateBand.bg+';padding:7px 3px;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;';
+        } else if(canClick){
           cell.style.cssText='border-radius:8px;border:1px solid '+dateBand.border+'88;background:'+dateBand.bg+';padding:7px 3px;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;';
         } else {
           cell.style.cssText='border-radius:8px;border:1px solid #181818;background:rgba(10,10,10,0.5);padding:7px 3px;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;opacity:'+(allPast?'0.25':'1')+';';
@@ -824,14 +816,18 @@ function renderCalendar(){
 
         if(allPast){
           cell.innerHTML='<span style="font-size:9px;color:#222;">-</span>';
-        } else if(canClick){
-          cell.innerHTML='<div style="width:6px;height:6px;border-radius:50%;background:'+dateBand.hex+';box-shadow:0 0 4px '+dateBand.hex+';"></div><span style="font-size:10px;color:'+dateBand.hex+';font-weight:600;">'+freeStr+'</span>'+(booked>0?'<span style="font-size:8px;color:'+dateBand.hex+'88;">'+(booked/2>=1?(booked/2)+'h':'30m')+' taken</span>':'');
-          cell.onclick=()=>openBandPicker(d,dateBand);
         } else if(isBooked){
           const firstName=bookedEntries[0]?.name?.split(' ')[0]||'';
+          const freeH=Math.floor(free/2),freeM=free%2?'30':'';
+          const freeStr=freeH>0?freeH+'h'+freeM:(freeM?freeM+'min':'');
           cell.innerHTML='<div style="width:6px;height:6px;border-radius:50%;background:'+dateBand.hex+';opacity:'+(domStatus==='pending'?'0.5':'1')+'"></div><span style="font-size:10px;color:'+dateBand.hex+';font-weight:700;">'+firstName+'</span><span style="font-size:9px;color:'+dateBand.hex+'88;">'+(domStatus==='confirmed'?'Confirmed':'Pending')+'</span>';
           const first=slots.map(s=>({key:slotKey(ds,s.id),bk:bookings[slotKey(ds,s.id)]})).find(x=>x.bk&&x.bk.status!=='rejected');
           if(first) cell.onclick=()=>openModify(d,dateBand,first.key,first.bk);
+        } else if(canClick){
+          const freeH=Math.floor(free/2),freeM=free%2?'30':'';
+          const freeStr=freeH>0?freeH+'h'+freeM:(freeM?freeM+'min':'');
+          cell.innerHTML='<div style="width:6px;height:6px;border-radius:50%;background:'+dateBand.hex+';box-shadow:0 0 4px '+dateBand.hex+';"></div><span style="font-size:10px;color:'+dateBand.hex+';font-weight:600;">'+freeStr+'</span>'+(booked>0?'<span style="font-size:8px;color:'+dateBand.hex+'88;">'+(booked/2>=1?(booked/2)+'h':'30m')+' taken</span>':'');
+          cell.onclick=()=>openBandPicker(d,dateBand);
         } else {
           cell.innerHTML='<span style="font-size:11px;opacity:0.4;">-</span>';
         }
