@@ -728,7 +728,7 @@ function renderCalendar(){
 
   // Teacher badge and logout button
   document.getElementById('teacherBadge').style.display=calendarMode==='teacher'?'flex':'none';
-  document.getElementById('teacherLogoutBtn').style.display=calendarMode==='teacher'?'block':'none';
+  document.getElementById('teacherLogoutBtn').style.display='block';
 
   // Week label
   const fmt=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
