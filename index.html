@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -646,6 +647,7 @@ function goToTeacher(){
 
 function goCalendar(mode){
   calendarMode=mode;
+  bookings=loadBookings();
   pinVal='';
   updatePinDots();
   showScreen('screen-calendar');
@@ -683,6 +685,7 @@ function changeWeek(dir, reset){
 }
 
 function renderCalendar(){
+  bookings=loadBookings();
   const dates=getWeekDates(weekOffset);
   const midMonth=dates[3].getMonth()+1;
   const bands=getBands(midMonth);
